@@ -1,12 +1,12 @@
 <?php
 /**
- * Plugin Name:      RW SSO  REST Auth
- * Plugin URI:       https://github.com/rpi-virtuell/rw-sso-rest-auth-service
- * Description:      Authentication tool to compare Wordpress login Data with a Remote Login Server
+ * Plugin Name:      rw sso REST Auth Client
+ * Plugin URI:       https://github.com/rpi-virtuell/rw-sso-rest-auth-client
+ * Description:      Client Authentication tool to compare Wordpress login Data with a Remote Login Server
  * Author:           Daniel Reintanz
  * Version:          1.0.0
  * Licence:          GPLv3
- * GitHub Plugin URI: https://github.com/rpi-virtuell/rw-sso--rest-auth
+ * GitHub Plugin URI: https://github.com/rpi-virtuell/rw-sso-rest-auth-client
  * GitHub Branch:     master
  */
 
@@ -19,11 +19,11 @@ class SsoRestAuthClient
      * @since   0.1
      * @access  public
      * @uses    plugin_basename
-     * @action  rw_remote_auth_server_init
+     * @action  sso_rest_auth_client
      */
     public function __construct()
     {
-        add_action('wp_authenticate', array('SsoRestAuthClient', 'check_credentials'));
+        add_action('wp_authenticate', array('SsoRestAuthClient', 'check_credentials'), 10, 3);
     }
 
     public function check_credentials($string, $username, $password)
@@ -59,4 +59,5 @@ class SsoRestAuthClient
         }
     }
 }
+new SsoRestAuthClient();
 
