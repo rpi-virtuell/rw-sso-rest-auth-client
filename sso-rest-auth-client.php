@@ -23,13 +23,13 @@ class SsoRestAuthClient
      */
     public function __construct()
     {
-        add_action('wp_authenticate', array('SsoRestAuthClient', 'check_credentials'), 10, 3);
+        add_action('wp_authenticate', array('SsoRestAuthClient', 'check_credentials'), 10, 2);
     }
 
-    public function check_credentials($string, $username, $password)
+    public function check_credentials($username, $password)
     {
         if (!empty($username) && !empty($password)) {
-            $url = 'konto.rpi-virtuell.de/matrix-/v/check_credentials';
+            $url = 'test.rpi-virtuell.de/sso/v1/check_credentials';
             $response = wp_remote_post($url, array(
                 'method' => 'POST',
                 'body' => array(
@@ -37,7 +37,8 @@ class SsoRestAuthClient
                     'password' => $password
                 ),
             ));
-            if ($response["success"]) {
+
+            if (!is_wp_error($response) && $response["success"]) {
                 if ($user = get_user_by('login', $username)) {
                     return $user;
                 } elseif ($user = get_user_by('email', $username)) {
