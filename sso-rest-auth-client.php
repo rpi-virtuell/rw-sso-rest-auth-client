@@ -25,6 +25,9 @@ class SsoRestAuthClient
     {
         add_filter('authenticate', array($this, 'check_credentials'), 10, 3);
         add_filter('registration_errors', array($this, 'remote_user_exists'), 10, 3);
+        add_action('admin_menu', array($this, 'add_invite_user_option_page'));
+        add_action('user_new_form_tag', array($this, 'redir_new_user'), 999);
+        add_action('wp_ajax_search_user', 'ajax_search_user');
     }
 
     public function remote_user_exists(WP_Error $error, $sanitized_user_login, $user_email)
@@ -66,12 +69,12 @@ class SsoRestAuthClient
                 if ($response->success) {
                     if ($user = get_user_by('login', $username)) {
                         if (is_multisite() && !is_user_member_of_blog($user->ID, get_current_blog_id())) {
-                            add_user_to_blog(get_current_blog_id(), $user->ID,get_option('default_role')) ;
+                            add_user_to_blog(get_current_blog_id(), $user->ID, get_option('default_role'));
                         }
                         return $user;
                     } elseif ($user = get_user_by('email', $username)) {
                         if (is_multisite() && !is_user_member_of_blog($user->ID, get_current_blog_id())) {
-                            add_user_to_blog(get_current_blog_id(), $user->ID,get_option('default_role')) ;
+                            add_user_to_blog(get_current_blog_id(), $user->ID, get_option('default_role'));
                         }
                         return $user;
                     } else {
@@ -101,6 +104,61 @@ class SsoRestAuthClient
         } else {
             return new WP_Error('Missing Parameters', 'Required Parameters are missing!');
         }
+    }
+
+    function redir_new_user()
+    {
+        wp_redirect('/wp-admin/users.php?page=invite_user');
+    }
+
+    function add_invite_user_option_page()
+    {
+        add_users_page('invite_user', 'Nutzer einladen', 'manage_options', 'invite_user', array($this, 'init_invite_user_page'), 1);
+    }
+
+    function init_invite_user_page()
+    {
+        $search_input = '';
+
+        if (isset($_POST['user-search-input'])) {
+            $search_input = $_POST['user-search-input'];
+        }
+        ?>
+        <form action="?page=invite_user" method="post">
+            <div class="user-search-bar">
+                <input type="text" id="user-search-input" name="user-search-input" value="<?php echo $search_input; ?>"
+                       placeholder="Nutzer Suche">
+                <button id="search-button" type="submit"> Suche</button>
+            </div>
+        </form>
+
+        <?php
+        if (!empty($search_input)) {
+            $url = 'https://test.rpi-virtuell.de/wp-json/sso/v1/get_remote_users';
+            $response = wp_remote_post($url, array(
+                'method' => 'POST',
+                'body' => array(
+                    'search_query' => $search_input
+                )));
+            $response = json_decode(wp_remote_retrieve_body($response));
+            if ($response->success) {
+                foreach ($response->users as $user) {
+                    ?>
+                    <form action="?page=invite_user" method="post">
+                        <div class="single-user-search-result">
+                            <?php echo $user->avatar ?> <br>
+                            Nutzername : <?php echo $user->user_login; ?> <br>
+                            Name : <?php echo $user->first_name . ' ' . $user->last_name ?> <br>
+                        </div>
+                    </form>
+
+
+                    <?php
+                }
+            }
+        }
+
+
     }
 }
 
