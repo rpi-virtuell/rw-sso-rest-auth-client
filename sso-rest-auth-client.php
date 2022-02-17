@@ -24,33 +24,10 @@ class SsoRestAuthClient
     public function __construct()
     {
         add_filter('authenticate', array($this, 'check_credentials'), 10, 3);
-        add_filter('registration_errors', array($this, 'remote_user_exists'), 10, 3);
-        add_action('admin_menu', array($this, 'add_invite_user_option_page'));
+        add_action('admin_menu', array($this, 'add_invite_user_user_page'));
         add_action('user_new_form_tag', array($this, 'redir_new_user'), 999);
         add_action('wp_ajax_search_user', 'ajax_search_user');
-    }
-
-    public function remote_user_exists(WP_Error $error, $sanitized_user_login, $user_email)
-    {
-        if (!empty($sanitized_user_login) && !empty($user_email)) {
-            $url = 'https://test.rpi-virtuell.de/wp-json/sso/v1/remote_user_exists';
-            $response = wp_remote_post($url, array(
-                'method' => 'POST',
-                'body' => array(
-                    'sanitized_user_login' => $sanitized_user_login,
-                    'user_email' => $user_email
-                )));
-            $response = json_decode(wp_remote_retrieve_body($response));
-            if (is_wp_error($response)) {
-                return $response;
-            } elseif ($response->success) {
-                return new WP_Error('User Exists', 'This User already exists'); //TODO: Hier sollte ggf. null returned werden
-            } else {
-                return $error;
-            }
-        } else {
-            return new WP_Error('Missing Parameters', 'Required Parameters are missing!');
-        }
+        add_action('wp_ajax_request_via_ajax', array($this, 'request_via_ajax'));
     }
 
     public function check_credentials($user, $username, $password)
@@ -111,28 +88,20 @@ class SsoRestAuthClient
         wp_redirect('/wp-admin/users.php?page=invite_user');
     }
 
-    function add_invite_user_option_page()
+    function add_invite_user_user_page()
     {
         add_users_page('invite_user', 'Nutzer einladen', 'manage_options', 'invite_user', array($this, 'init_invite_user_page'), 1);
     }
 
-    function init_invite_user_page()
+    //Hier kommt die Ajaxanfrage an  (@see line 11)
+    public
+    function request_via_ajax()
     {
-        $search_input = '';
 
-        if (isset($_POST['user-search-input'])) {
-            $search_input = $_POST['user-search-input'];
-        }
-        ?>
-        <form action="?page=invite_user" method="post">
-            <div class="user-search-bar">
-                <input type="text" id="user-search-input" name="user-search-input" value="<?php echo $search_input; ?>"
-                       placeholder="Nutzer Suche">
-                <button id="search-button" type="submit"> Suche</button>
-            </div>
-        </form>
+        //$_POST auswerten
+        $search_input = isset($_POST['search_input']) ? $_POST['search_input'] : '';
+        $return = array('results' => array());
 
-        <?php
         if (!empty($search_input)) {
             $url = 'https://test.rpi-virtuell.de/wp-json/sso/v1/get_remote_users';
             $response = wp_remote_post($url, array(
@@ -143,20 +112,70 @@ class SsoRestAuthClient
             $response = json_decode(wp_remote_retrieve_body($response));
             if ($response->success) {
                 foreach ($response->users as $user) {
-                    ?>
-                    <form action="?page=invite_user" method="post">
-                        <div class="single-user-search-result">
-                            <?php echo $user->avatar ?> <br>
-                            Nutzername : <?php echo $user->user_login; ?> <br>
-                            Name : <?php echo $user->first_name . ' ' . $user->last_name ?> <br>
-                        </div>
-                    </form>
-
-
-                    <?php
+                    array_push($return['results'],
+                            "<div class='single-user-search-result'>",
+                            "$user->avatar ", "<br>",
+                            "Nutzername : $user->user_login", "<br>",
+                            "Name : $user->first_name $user->last_name", "<br>",
+                            "</div>");
                 }
             }
         }
+
+        //als json versenden
+        wp_send_json($return);
+        die();
+    }
+
+
+    function init_invite_user_page()
+    {
+
+        ?>
+        <h1>Nutzer einladen</h1>
+        <input id="suche" placeholder="Nutzername oder Email">
+        <div id="results">Ergebnisse</div>
+
+
+        <script>
+
+            // Script erst laden, wenn das Document vollständig ausgebout ist
+            jQuery(document).ready(function ($) {
+
+                //Ajax soll ausgelöst werden wenn im Input Feld geschrieben wird
+                $(document).on('keydown', '#suche', function () {
+                    //ajax anfrage via Javascript an server schicken
+                    $.ajax({
+                        type: 'POST',
+                        url: ajaxurl,                    // ajaxurl: global wp var
+                        data: {                          // daten die per POST an den Server geschickt werden sollen
+                            action: 'request_via_ajax',  // ajax action @see line 11
+                            search_input: $('#suche').val()
+                        },
+
+                        //Ajax anfrage hat geklappt
+                        success: function (data, textStatus, XMLHttpRequest) { //erfolgreiche anfrage
+
+                            if ($('#results')) {
+
+                                $('#results').html(''); //Ausgabe in das div#results schreiben:
+                                for (const result of data.results) {
+
+                                    $('#results').append(result + '<br>');
+
+                                }
+                            }
+                        },
+
+                        //Ajax anfrage hat nicht geklappt
+                        error: function (XMLHttpRequest, textStatus, errorThrown) {
+                            console.log(errorThrown);
+                        }
+                    });
+                });
+            });
+        </script>
+        <?php
 
 
     }
