@@ -144,7 +144,7 @@ class SsoRestAuthClient
             if ($response->success && $target_user) {
                 if ($user = get_user_by('login', $target_user)) {
                     if (is_multisite() && !is_user_member_of_blog($user->ID, get_current_blog_id())) {
-                        add_user_to_blog(get_current_blog_id(), $user->ID, get_option('default_role'));
+                        add_user_to_blog(get_current_blog_id(), $user->ID, $role);
                         $return = array('success' => true, 'multisite' => true);
                     }
                 } else {
