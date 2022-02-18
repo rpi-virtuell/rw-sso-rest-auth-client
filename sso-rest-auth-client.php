@@ -27,7 +27,8 @@ class SsoRestAuthClient
         add_action('admin_menu', array($this, 'add_invite_user_user_page'));
         add_action('user_new_form_tag', array($this, 'redir_new_user'), 999);
         add_action('wp_ajax_search_user', 'ajax_search_user');
-        add_action('wp_ajax_request_via_ajax', array($this, 'request_via_ajax'));
+        add_action('wp_ajax_get_users_via_ajax', array($this, 'get_users_via_ajax'));
+        add_action('wp_ajax_invite_user_via_ajax', array($this, 'invite_user_via_ajax'));
     }
 
     public function check_credentials($user, $username, $password)
@@ -38,7 +39,8 @@ class SsoRestAuthClient
                 'method' => 'POST',
                 'body' => array(
                     'username' => $username,
-                    'password' => $password
+                    'password' => $password,
+                    'origin_url' => home_url()
                 )));
 
             $response = json_decode(wp_remote_retrieve_body($response));
@@ -90,18 +92,14 @@ class SsoRestAuthClient
 
     function add_invite_user_user_page()
     {
-        add_users_page('invite_user', 'Nutzer einladen', 'manage_options', 'invite_user', array($this, 'init_invite_user_page'), 1);
+        add_users_page('invite_user', 'Nutzer einladen', 'edit_users', 'invite_user', array($this, 'init_invite_user_page'), 1);
     }
 
-    //Hier kommt die Ajaxanfrage an  (@see line 11)
     public
-    function request_via_ajax()
+    function get_users_via_ajax()
     {
-
-        //$_POST auswerten
         $search_input = isset($_POST['search_input']) ? $_POST['search_input'] : '';
-        $return = array('results' => array());
-
+        $return = array('success' => false);
         if (!empty($search_input)) {
             $url = 'https://test.rpi-virtuell.de/wp-json/sso/v1/get_remote_users';
             $response = wp_remote_post($url, array(
@@ -109,32 +107,116 @@ class SsoRestAuthClient
                 'body' => array(
                     'search_query' => $search_input
                 )));
-            $response = json_decode(wp_remote_retrieve_body($response));
-            if ($response->success) {
-                foreach ($response->users as $user) {
-                    array_push($return['results'],
-                            "<div class='single-user-search-result'>",
-                            "$user->avatar ", "<br>",
-                            "Nutzername : $user->user_login", "<br>",
-                            "Name : $user->first_name $user->last_name", "<br>",
-                            "</div>");
+            if (wp_remote_retrieve_response_code($response) < 400) {
+                $response = json_decode(wp_remote_retrieve_body($response));
+                if ($response->success) {
+                    $return = array('success' => true, 'results' => array());
+                    foreach ($response->users as $user) {
+                        array_push($return['results'],
+                            "<div class='single-user-search-result' id='$user->user_login'>
+                                        <div class='single-user-avatar'> $user->avatar </div>
+                                        <div class='single-user-detail'> Nutzername : $user->user_login <br> Name : " . $user->first_name . " " . $user->last_name . "</div>
+                                    </div>");
+                    }
                 }
             }
         }
-
-        //als json versenden
         wp_send_json($return);
         die();
     }
 
+    public function invite_user_via_ajax()
+    {
+        $return = array('success' => false);
+        $target_user = isset($_POST['target_user']) ? $_POST['target_user'] : false;
+        $role = isset($_POST['role']) ? $_POST['role'] : 'subscriber';
+        $url = 'https://test.rpi-virtuell.de/wp-json/sso/v1/get_remote_user';
+        $response = wp_remote_post($url, array(
+            'method' => 'POST',
+            'body' => array(
+                'user_login' => $target_user
+            )));
+        if (wp_remote_retrieve_response_code($response) < 400) {
+            $response = json_decode(wp_remote_retrieve_body($response));
+            if ($response->success && $target_user) {
+                if ($user = get_user_by('login', $target_user)) {
+                    if (is_multisite() && !is_user_member_of_blog($user->ID, get_current_blog_id())) {
+                        add_user_to_blog(get_current_blog_id(), $user->ID, get_option('default_role'));
+                        $return = array('success' => true, 'multisite' => true);
+                    }
+                } else {
+                    $user_id = wp_insert_user(array(
+                        'user_login' => $response->user->user_login,
+                        'first_name' => $response->user->first_name,
+                        'last_name' => $response->user->last_name,
+                        'user_pass' => wp_generate_password(8),
+                        'display_name' => $response->user->display_name,
+                        'user_email' => $response->user->user_email,
+                        'role' => $role
+                    ));
+                    $return = array('success' => true, 'user_id' => $user_id);
+                }
+            }
+        }
+        wp_send_json($return);
+        die();
+    }
 
     function init_invite_user_page()
     {
 
         ?>
-        <h1>Nutzer einladen</h1>
-        <input id="suche" placeholder="Nutzername oder Email">
-        <div id="results">Ergebnisse</div>
+        <style>
+            .single-user-search-result {
+                display: grid;
+                margin: 10px;
+                padding: 5px 10px;
+                width: 300px;
+                background: lightgrey;
+                border-radius: 5px;
+            }
+
+            .single-user-search-result img {
+                border-radius: 5px;
+            }
+
+            .single-user-search-result:hover {
+                background: white;
+            }
+
+            .single-user-detail {
+                font-size: 1.4em;
+            }
+
+            #results {
+                margin-top: 30px;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .results-info {
+                display: none;
+            }
+
+            h1 {
+                margin-bottom: 20px !important;
+            }
+
+        </style>
+        <div class="wrap">
+            <h1>Nutzer hinzufügen</h1>
+
+            <input id="suche" placeholder="Nutzername oder Email">
+            <button id="search-button" type="button">Suchen</button>
+            <p class="results-info">Gewünschten Nutzer auswählen</p>
+            <div id="results">Ergebnisse</div>
+            <div id="user_invite_form" style="display:none;">
+                <input type="hidden" id="selected_user">
+                <span id="selected_user_display"></span>
+                <?php echo $this->prepare_role_html(); ?>
+                <button type="button" id="invite_user">Nutzer anlegen</button>
+            </div>
+        </div>
 
 
         <script>
@@ -143,25 +225,34 @@ class SsoRestAuthClient
             jQuery(document).ready(function ($) {
 
                 //Ajax soll ausgelöst werden wenn im Input Feld geschrieben wird
-                $(document).on('keydown', '#suche', function () {
+                $(document).on('keyup', '#suche', function () {
+                    if ($('#suche').val().length >= 4) {
+                        remote_search()
+                    }
+                });
+                $(document).on('click', '#search-button', function () {
+                    remote_search()
+                });
+
+                function remote_search() {
                     //ajax anfrage via Javascript an server schicken
                     $.ajax({
                         type: 'POST',
                         url: ajaxurl,                    // ajaxurl: global wp var
                         data: {                          // daten die per POST an den Server geschickt werden sollen
-                            action: 'request_via_ajax',  // ajax action @see line 11
+                            action: 'get_users_via_ajax',  // ajax action @see line 11
                             search_input: $('#suche').val()
                         },
 
                         //Ajax anfrage hat geklappt
                         success: function (data, textStatus, XMLHttpRequest) { //erfolgreiche anfrage
-
-                            if ($('#results')) {
+                            if ($('#results') && data.success == true) {
 
                                 $('#results').html(''); //Ausgabe in das div#results schreiben:
-                                for (const result of data.results) {
+                                $('.results-info').show();
 
-                                    $('#results').append(result + '<br>');
+                                for (const result of data.results) {
+                                    $('#results').append(result);
 
                                 }
                             }
@@ -172,14 +263,61 @@ class SsoRestAuthClient
                             console.log(errorThrown);
                         }
                     });
+                }
+
+                $(document).on('click', '.single-user-search-result', function (e) {
+                    $('#user_invite_form').show();
+                    $('#selected_user').val(e.currentTarget.id);
+                    $('.single-user-search-result').hide();
+                    $('#' + $.escapeSelector(e.currentTarget.id)).show();
+                    $('.results-info').hide();
+
                 });
+
+                $(document).on('click', '#invite_user', function () {
+                    $.ajax({
+                        type: 'POST',
+                        url: ajaxurl,                    // ajaxurl: global wp var
+                        data: {                          // daten die per POST an den Server geschickt werden sollen
+                            action: 'invite_user_via_ajax',  // ajax action @see line 11
+                            target_user: $('#selected_user').val(),
+                            role: $('#role').val()
+                        },
+
+                        //Ajax anfrage hat geklappt
+                        success: function (data, textStatus, XMLHttpRequest) { //erfolgreiche anfrage
+                            if ($('#results') && data.success === true) {
+
+                                $('#results').html('Ist erfolgreich hinzugefügt worden!');
+                            }
+                        },
+
+                        //Ajax anfrage hat nicht geklappt
+                        error: function (XMLHttpRequest, textStatus, errorThrown) {
+                            console.log(errorThrown);
+                        }
+                    });
+                })
             });
         </script>
+
         <?php
 
 
     }
+
+    private function prepare_role_html()
+    {
+        $return = '<label for="role">Rolle festlegen</label><select name="role" id="role">';
+        $roles = wp_roles()->get_names();
+        foreach ($roles as $role => $name) {
+            $return .= '<option value="' . $role . '">' . $name . '</option>';
+        }
+        $return .= '</select> ';
+        return $return;
+    }
 }
+
 
 new SsoRestAuthClient();
 
