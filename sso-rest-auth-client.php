@@ -25,11 +25,12 @@ class SsoRestAuthClient
     public function __construct()
     {
         add_filter('authenticate', array($this, 'check_credentials'), 10, 3);
-        add_action('admin_menu', array($this, 'add_invite_user_user_page'));
+        add_action('admin_menu', array($this, 'add_invite_user_user_page'),999);
         add_action('user_new_form_tag', array($this, 'redir_new_user'), 999);
         add_action('wp_ajax_search_user', 'ajax_search_user');
         add_action('wp_ajax_get_users_via_ajax', array($this, 'get_users_via_ajax'));
         add_action('wp_ajax_invite_user_via_ajax', array($this, 'invite_user_via_ajax'));
+
     }
 
     public function check_credentials($user, $username, $password)
@@ -88,11 +89,12 @@ class SsoRestAuthClient
 
     function redir_new_user()
     {
-        wp_redirect('/wp-admin/users.php?page=invite_user');
+        wp_redirect(home_url().'/wp-admin/users.php?page=invite_user');
     }
 
     function add_invite_user_user_page()
     {
+        remove_submenu_page('users.php','user-new.php');
         add_users_page('invite_user', 'Nutzer einladen', 'edit_users', 'invite_user', array($this, 'init_invite_user_page'), 1);
     }
 
@@ -288,8 +290,11 @@ class SsoRestAuthClient
                         //Ajax anfrage hat geklappt
                         success: function (data, textStatus, XMLHttpRequest) { //erfolgreiche anfrage
                             if ($('#results') && data.success === true) {
-
-                                $('#results').html('Ist erfolgreich hinzugefügt worden!');
+                                $('#user_invite_form').hide();
+                                $('#results').html($('#selected_user').val() + ' wurde erfolgreich hinzugefügt!');
+                            }
+                            if($('#results') && data.success === false){
+                                $('#results').html($('#selected_user').val() + ' konnte nicht hinzugefügt werden!');
                             }
                         },
 
@@ -312,7 +317,10 @@ class SsoRestAuthClient
         $return = '<label for="role">Rolle festlegen</label><select name="role" id="role">';
         $roles = wp_roles()->get_names();
         foreach ($roles as $role => $name) {
-            $return .= '<option value="' . $role . '">' . $name . '</option>';
+            $selected = '';
+            if ($role == "subscriber")
+                $selected = 'selected';
+            $return .= '<option value="' . $role . '" ' . $selected . ' >' . $name . '</option>';
         }
         $return .= '</select> ';
         return $return;
