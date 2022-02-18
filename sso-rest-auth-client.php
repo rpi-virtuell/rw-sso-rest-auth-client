@@ -13,6 +13,7 @@
 class SsoRestAuthClient
 {
 
+
     /**
      * Plugin constructor.
      *
@@ -34,7 +35,7 @@ class SsoRestAuthClient
     public function check_credentials($user, $username, $password)
     {
         if (!empty($username) && !empty($password)) {
-            $url = 'https://test.rpi-virtuell.de/wp-json/sso/v1/check_credentials';
+            $url = getenv("KONTO_SERVER") . '/wp-json/sso/v1/check_credentials';
             $response = wp_remote_post($url, array(
                 'method' => 'POST',
                 'body' => array(
@@ -101,7 +102,7 @@ class SsoRestAuthClient
         $search_input = isset($_POST['search_input']) ? $_POST['search_input'] : '';
         $return = array('success' => false);
         if (!empty($search_input)) {
-            $url = 'https://test.rpi-virtuell.de/wp-json/sso/v1/get_remote_users';
+            $url = getenv("KONTO_SERVER") . '/wp-json/sso/v1/get_remote_users';
             $response = wp_remote_post($url, array(
                 'method' => 'POST',
                 'body' => array(
@@ -130,7 +131,7 @@ class SsoRestAuthClient
         $return = array('success' => false);
         $target_user = isset($_POST['target_user']) ? $_POST['target_user'] : false;
         $role = isset($_POST['role']) ? $_POST['role'] : 'subscriber';
-        $url = 'https://test.rpi-virtuell.de/wp-json/sso/v1/get_remote_user';
+        $url = getenv("KONTO_SERVER") . '/wp-json/sso/v1/get_remote_user';
         $response = wp_remote_post($url, array(
             'method' => 'POST',
             'body' => array(
