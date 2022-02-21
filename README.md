@@ -15,7 +15,7 @@ Plugin**
 
 ---
 
-##Installation
+## Installation
 
 ### 1. Setting the Service Server
 The Plugin needs to know where to send its REST Calls.
