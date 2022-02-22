@@ -5,6 +5,8 @@
  * Description:      Client Authentication tool to compare Wordpress login Data with a Remote Login Server
  * Author:           Daniel Reintanz
  * Version:          1.0.0
+ * Domain Path:     /languages
+ * Text Domain:      rw-sso-client
  * Licence:          GPLv3
  * GitHub Plugin URI: https://github.com/rpi-virtuell/rw-sso-rest-auth-client
  * GitHub Branch:     master
@@ -24,78 +26,202 @@ class SsoRestAuthClient
      */
     public function __construct()
     {
-        add_filter('authenticate', array($this, 'check_credentials'), 10, 3);
-        add_action('admin_menu', array($this, 'add_invite_user_user_page'),999);
+        if (!defined('KONTO_SERVER')) {
+            if (getenv('KONTO_SERVER'))
+                define('KONTO_SERVER', getenv('KONTO_SERVER'));
+            else
+                // .htaccess Eintrag fehlt: SetEnv KONTO_SERVER "https://my-wordpress-website.com"
+                wp_die('Environmental Var KONTO_SERVER is not defined');
+        }
+        add_filter('authenticate', array($this, 'check_credentials'), 999, 3);
+        add_action('admin_menu', array($this, 'add_invite_user_user_page'), 999);
         add_action('user_new_form_tag', array($this, 'redir_new_user'), 999);
         add_action('wp_ajax_search_user', 'ajax_search_user');
         add_action('wp_ajax_get_users_via_ajax', array($this, 'get_users_via_ajax'));
         add_action('wp_ajax_invite_user_via_ajax', array($this, 'invite_user_via_ajax'));
+        register_activation_hook(__FILE__, array($this, 'create_failed_login_log_table'));
+        register_deactivation_hook(__FILE__, array($this, 'delete_failed_login_log_table'));
+        add_filter('lostpassword_url', function () {
+            return KONTO_SERVER . '/wp-login.php?action=lostpassword';
+        });
+        add_filter('register_url', function () {
+            return KONTO_SERVER . '/wp-login.php?action=register';
+        });
 
     }
+
+    public function create_failed_login_log_table()
+    {
+        global $wpdb;
+
+        $table_name = $wpdb->prefix . 'failed_login_log';
+        $charset_collate = $wpdb->get_charset_collate();
+
+        $sql = "CREATE TABLE IF NOT EXISTS $table_name (
+                `hash`  char(32) NOT NULL DEFAULT '' ,
+                `last_login`  bigint(20) NULL ,
+                `ip`  varchar(30) NULL DEFAULT '' ,
+                `username`  varchar(30) NULL DEFAULT '' ,
+                INDEX (`hash`)
+                ) $charset_collate;";
+
+
+        $wpdb->query($sql);
+    }
+
+    public function delete_failed_login_log_table()
+    {
+        global $wpdb;
+
+        $table_name = $wpdb->prefix . 'failed_login_log';
+
+        $sql = "DROP TABLE IF EXISTS `$table_name`;";
+
+        $wpdb->query($sql);
+    }
+
+
+    public function check_login_attempts($username)
+    {
+
+        $ip = $_SERVER['REMOTE_ADDR'];
+        $hash = md5($username . $ip);
+        global $wpdb;
+        $versuche = $wpdb->get_var("SELECT count(*) FROM {$wpdb->prefix}failed_login_log WHERE hash = '{$hash}' and last_login > UNIX_TIMESTAMP()-(60*20)");
+
+        BugFu::log($versuche);
+
+        if (intval($versuche) > 3) {
+            $lastlogin = $wpdb->get_var("SELECT last_login FROM {$wpdb->prefix}failed_login_log WHERE hash = '{$hash}' ORDER BY last_login DESC LIMIT 1");
+            $lastlogin -= time() - 1200;
+            $lastlogin = intval($lastlogin / 60);
+
+            return new WP_Error('max_invalid_logins', sprintf(__("The maximum amount of login attempts has been reached please wait %d minutes", 'rw-sso-client'), $lastlogin));
+        }elseif ( 5 < $wpdb->get_var("SELECT count(*) FROM {$wpdb->prefix}failed_login_log WHERE ip = '$ip' and last_login > UNIX_TIMESTAMP()-(60*20)"))
+        {
+            return new WP_Error('max_invalid_logins', __("The maximum amount of login attempts has been reached!", 'rw-sso-client'));
+        }
+        else {
+            return true;
+        }
+    }
+
+    public function cleanup_old_failed_login_attempts()
+    {
+
+        global $wpdb;
+
+        $table_name = $wpdb->prefix . 'failed_login_log';
+
+        $sql = "DELETE FROM `$table_name` WHERE last_login < UNIX_TIMESTAMP()-(60*20);";
+
+        $wpdb->query($sql);
+
+    }
+
+    public function add_failed_login_attempt($username)
+    {
+
+        $ip = $_SERVER['REMOTE_ADDR'];
+        $hash = md5($username . $ip);
+        global $wpdb;
+
+        $result = $wpdb->insert(
+            $wpdb->prefix . 'failed_login_log',
+            array(
+                'hash' => $hash,
+                'ip' => $ip,
+                'username' => $username,
+                'last_login' => time(),
+            ),
+            array(
+                '%s',
+                '%s',
+                '%s',
+                '%d',
+            )
+        );
+
+    }
+
 
     public function check_credentials($user, $username, $password)
     {
         if (!empty($username) && !empty($password)) {
-            $url = getenv("KONTO_SERVER") . '/wp-json/sso/v1/check_credentials';
-            $response = wp_remote_post($url, array(
-                'method' => 'POST',
-                'body' => array(
-                    'username' => $username,
-                    'password' => $password,
-                    'origin_url' => home_url()
-                )));
 
-            $response = json_decode(wp_remote_retrieve_body($response));
-            if (!is_wp_error($response)) {
-                if ($response->success) {
-                    if ($user = get_user_by('login', $username)) {
-                        if (is_multisite() && !is_user_member_of_blog($user->ID, get_current_blog_id())) {
-                            add_user_to_blog(get_current_blog_id(), $user->ID, get_option('default_role'));
-                        }
-                        return $user;
-                    } elseif ($user = get_user_by('email', $username)) {
-                        if (is_multisite() && !is_user_member_of_blog($user->ID, get_current_blog_id())) {
-                            add_user_to_blog(get_current_blog_id(), $user->ID, get_option('default_role'));
-                        }
-                        return $user;
-                    } else {
-                        $user_id = wp_insert_user(array(
-                            'user_login' => $response->profile->user_login,
-                            'first_name' => $response->profile->first_name,
-                            'last_name' => $response->profile->last_name,
-                            'user_pass' => wp_generate_password(8),
-                            'display_name' => $response->profile->display_name,
-                            'user_email' => $response->profile->user_email
-                        ));
-                        if (is_wp_error($user_id)) {
-                            return $user_id->get_error_message();
+            $this->cleanup_old_failed_login_attempts();
+            if (!is_wp_error($attempts = $this->check_login_attempts($username))) {
+                if (is_a($user, 'WP_User')) {
+                    return $user;
+                }
+                $url = KONTO_SERVER . '/wp-json/sso/v1/check_credentials';
+                $response = wp_remote_post($url, array(
+                    'method' => 'POST',
+                    'body' => array(
+                        'username' => $username,
+                        'password' => $password,
+                        'origin_url' => home_url()
+                    )));
+                $response = json_decode(wp_remote_retrieve_body($response));
+                if (!is_wp_error($response)) {
+                    if (isset($response->success)) {
+                        if ($response->success) {
+                            if ($user = get_user_by('login', $username)) {
+                                if (is_multisite() && !is_user_member_of_blog($user->ID, get_current_blog_id())) {
+                                    add_user_to_blog(get_current_blog_id(), $user->ID, get_option('default_role'));
+                                }
+                                return $user;
+                            } elseif ($user = get_user_by('email', $username)) {
+                                if (is_multisite() && !is_user_member_of_blog($user->ID, get_current_blog_id())) {
+                                    add_user_to_blog(get_current_blog_id(), $user->ID, get_option('default_role'));
+                                }
+                                return $user;
+                            } else {
+                                $user_id = wp_insert_user(array(
+                                    'user_login' => $response->profile->user_login,
+                                    'first_name' => $response->profile->first_name,
+                                    'last_name' => $response->profile->last_name,
+                                    'user_pass' => wp_generate_password(8),
+                                    'display_name' => $response->profile->display_name,
+                                    'user_email' => $response->profile->user_email
+                                ));
+                                if (is_wp_error($user_id)) {
+                                    return $user_id;
+                                } else {
+                                    return get_user_by('id', $user_id);
+
+                                }
+                            }
                         } else {
-                            return get_user_by('id', $user_id);
+                            $this->add_failed_login_attempt($username);
 
+                            return new WP_Error('Wrong credentials', __('Username or password is invalid', 'rw-sso-client'));
                         }
+                    } else {
+                        return new WP_Error('NoResponse', __('No Response from Remote Login Server!', 'rw-sso-client'));
                     }
                 } else {
-                    return new WP_Error('NoResponse', 'No Response from Remote Login Server!');
+                    return $response;
                 }
-
             } else {
-                return $response->get_error_message();
-            }
 
+                BugFu::log($attempts);
+                return $attempts;
+            }
         } else {
-            return new WP_Error('Missing Parameters', 'Required Parameters are missing!');
+            return new WP_Error('Missing Parameters', __('Username and Password are required!', 'rw-sso-client'));
         }
     }
 
     function redir_new_user()
     {
-        wp_redirect(home_url().'/wp-admin/users.php?page=invite_user');
+        wp_redirect(home_url() . '/wp-admin/users.php?page=invite_user');
     }
 
     function add_invite_user_user_page()
     {
-        remove_submenu_page('users.php','user-new.php');
-        add_users_page('invite_user', 'Nutzer einladen', 'edit_users', 'invite_user', array($this, 'init_invite_user_page'), 1);
+        remove_submenu_page('users.php', 'user-new.php');
+        add_users_page('invite_user', __('Invite User', 'rw-sso-client'), 'edit_users', 'invite_user', array($this, 'init_invite_user_page'), 1);
     }
 
     public
@@ -293,7 +419,7 @@ class SsoRestAuthClient
                                 $('#user_invite_form').hide();
                                 $('#results').html($('#selected_user').val() + ' wurde erfolgreich hinzugefügt!');
                             }
-                            if($('#results') && data.success === false){
+                            if ($('#results') && data.success === false) {
                                 $('#results').html($('#selected_user').val() + ' konnte nicht hinzugefügt werden!');
                             }
                         },

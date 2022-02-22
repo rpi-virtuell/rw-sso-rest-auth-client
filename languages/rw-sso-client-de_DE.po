@@ -1,0 +1,62 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: rw sso REST Auth Client\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-02-22 15:16+0000\n"
+"PO-Revision-Date: 2022-02-22 16:02+0000\n"
+"Last-Translator: \n"
+"Language-Team: Deutsch\n"
+"Language: de_DE\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Loco https://localise.biz/\n"
+"X-Loco-Version: 2.5.8; wp-5.9\n"
+"X-Domain: rw-sso-client"
+
+#. Description of the plugin
+msgid ""
+"Client Authentication tool to compare Wordpress login Data with a Remote "
+"Login Server"
+msgstr ""
+
+#. Author of the plugin
+msgid "Daniel Reintanz"
+msgstr ""
+
+#. URI of the plugin
+msgid "https://github.com/rpi-virtuell/rw-sso-rest-auth-client"
+msgstr ""
+
+#: sso-rest-auth-client.php:224
+msgid "Invite User"
+msgstr "Benutzer einladen"
+
+#: sso-rest-auth-client.php:201
+msgid "No Response from Remote Login Server!"
+msgstr "Keine Antwort vom Remote Login Server!"
+
+#. Name of the plugin
+msgid "rw sso REST Auth Client"
+msgstr ""
+
+#: sso-rest-auth-client.php:99
+#| msgid "The maximum amount of login attempts has been reached please wait "
+msgid ""
+"The maximum amount of login attempts has been reached please wait %d minutes"
+msgstr ""
+"Die maximale Anzahl der Anmeldeversuche wurde erreicht, bitte warten Sie %d "
+"Minuten"
+
+#: sso-rest-auth-client.php:102
+msgid "The maximum amount of login attempts has been reached!"
+msgstr "Die maximale Anzahl an Anmeldeversuchen wurde erreicht!"
+
+#: sso-rest-auth-client.php:212
+msgid "Username and Password are required!"
+msgstr "Benutzername und Passwort sind erforderlich!"
+
+#: sso-rest-auth-client.php:198
+msgid "Username or password is invalid"
+msgstr "Benutzername oder Passwort ist ungültig"
