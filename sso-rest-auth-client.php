@@ -34,6 +34,10 @@ class SsoRestAuthClient
                 wp_die('Environmental Var KONTO_SERVER is not defined');
         }
         add_filter('authenticate', array($this, 'check_credentials'), 999, 3);
+        add_action('login_head', array($this, 'login_through_token'));
+        add_action('wp_logout', array($this, 'remote_logout'));
+        add_action('wp_head', array($this, 'remote_login'));
+        add_action('admin_head', array($this, 'remote_login'));
         add_action('admin_menu', array($this, 'add_invite_user_user_page'), 999);
         add_action('user_new_form_tag', array($this, 'redir_new_user'), 999);
         add_action('wp_ajax_search_user', 'ajax_search_user');
@@ -61,7 +65,7 @@ class SsoRestAuthClient
                 `hash`  char(32) NOT NULL DEFAULT '' ,
                 `last_login`  bigint(20) NULL ,
                 `ip`  varchar(30) NULL DEFAULT '' ,
-                `username`  varchar(30) NULL DEFAULT '' ,
+                `username`  varchar(36) NULL DEFAULT '' ,
                 INDEX (`hash`)
                 ) $charset_collate;";
 
@@ -88,20 +92,15 @@ class SsoRestAuthClient
         $hash = md5($username . $ip);
         global $wpdb;
         $versuche = $wpdb->get_var("SELECT count(*) FROM {$wpdb->prefix}failed_login_log WHERE hash = '{$hash}' and last_login > UNIX_TIMESTAMP()-(60*20)");
-
-        BugFu::log($versuche);
-
         if (intval($versuche) > 3) {
             $lastlogin = $wpdb->get_var("SELECT last_login FROM {$wpdb->prefix}failed_login_log WHERE hash = '{$hash}' ORDER BY last_login DESC LIMIT 1");
             $lastlogin -= time() - 1200;
             $lastlogin = intval($lastlogin / 60);
 
             return new WP_Error('max_invalid_logins', sprintf(__("The maximum amount of login attempts has been reached please wait %d minutes", 'rw-sso-client'), $lastlogin));
-        }elseif ( 5 < $wpdb->get_var("SELECT count(*) FROM {$wpdb->prefix}failed_login_log WHERE ip = '$ip' and last_login > UNIX_TIMESTAMP()-(60*20)"))
-        {
+        } elseif (5 < $wpdb->get_var("SELECT count(*) FROM {$wpdb->prefix}failed_login_log WHERE ip = '$ip' and last_login > UNIX_TIMESTAMP()-(60*20)")) {
             return new WP_Error('max_invalid_logins', __("The maximum amount of login attempts has been reached!", 'rw-sso-client'));
-        }
-        else {
+        } else {
             return true;
         }
     }
@@ -144,6 +143,64 @@ class SsoRestAuthClient
 
     }
 
+    public  function remote_logout(){
+       wp_redirect(KONTO_SERVER.'/wp-login.php?action=logout&redirect_to='.home_url());
+       die();
+    }
+    public function remote_login(){
+        $login_token = get_user_meta(get_current_user_id(),'rw_sso_login_token',true);
+        if (!empty($login_token))
+        {
+            ?>
+            <script src="<?php echo KONTO_SERVER . '?login_token='. $login_token ?>">
+            </script>
+            <?php
+            delete_user_meta(get_current_user_id(), 'rw_sso_login_token');
+        }
+    }
+
+    public function login_through_token()
+    {
+        if (is_user_logged_in()) {
+            return;
+        }
+        if(isset($_GET['rw_sso_login_token'])) {
+            $login_token = $_GET['rw_sso_login_token'];
+            $url = KONTO_SERVER . '/wp-json/sso/v1/check_login_token';
+            $response = wp_remote_post($url, array(
+                'method' => 'POST',
+                'body' => array(
+                    'login_token' => $login_token,
+                )));
+            $response = json_decode(wp_remote_retrieve_body($response));
+            var_dump($response);
+            if (!is_wp_error($response)) {
+                if (isset($response->success)) {
+                    if ($response->success) {
+                        $user = get_user_by('login', $response->user_login);
+                        wp_set_current_user($user->ID);
+                        wp_set_auth_cookie($user->ID);
+                        $redirect_to = home_url();
+                        wp_safe_redirect($redirect_to);
+                        exit();
+                    }
+                }
+            }
+            die();
+        } else {
+            ?>
+            <script src="<?php echo KONTO_SERVER . '?action=check_token' ?>">
+            </script>
+            <script>
+                if (rw_sso_login_token) {
+                    location.href = '?rw_sso_login_token=' + rw_sso_login_token + '&redirect='+ encodeURI(location.href);
+                }
+            </script>
+            <?php
+
+        }
+    }
+
 
     public function check_credentials($user, $username, $password)
     {
@@ -167,11 +224,13 @@ class SsoRestAuthClient
                     if (isset($response->success)) {
                         if ($response->success) {
                             if ($user = get_user_by('login', $username)) {
+                                update_user_meta($user->ID,'rw_sso_login_token',$response->profile->login_token);
                                 if (is_multisite() && !is_user_member_of_blog($user->ID, get_current_blog_id())) {
                                     add_user_to_blog(get_current_blog_id(), $user->ID, get_option('default_role'));
                                 }
                                 return $user;
                             } elseif ($user = get_user_by('email', $username)) {
+                                update_user_meta($user->ID,'rw_sso_login_token',$response->profile->login_token);
                                 if (is_multisite() && !is_user_member_of_blog($user->ID, get_current_blog_id())) {
                                     add_user_to_blog(get_current_blog_id(), $user->ID, get_option('default_role'));
                                 }
@@ -185,6 +244,7 @@ class SsoRestAuthClient
                                     'display_name' => $response->profile->display_name,
                                     'user_email' => $response->profile->user_email
                                 ));
+                                update_user_meta($user_id,'rw_sso_login_token',$response->profile->login_token);
                                 if (is_wp_error($user_id)) {
                                     return $user_id;
                                 } else {
@@ -192,6 +252,7 @@ class SsoRestAuthClient
 
                                 }
                             }
+
                         } else {
                             $this->add_failed_login_attempt($username);
 
@@ -204,8 +265,6 @@ class SsoRestAuthClient
                     return $response;
                 }
             } else {
-
-                BugFu::log($attempts);
                 return $attempts;
             }
         } else {
