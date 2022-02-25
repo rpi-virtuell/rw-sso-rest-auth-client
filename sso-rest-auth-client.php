@@ -64,14 +64,13 @@ class SsoRestAuthClient
 
         $table_name = $wpdb->prefix . 'failed_login_log';
 
-        if (empty($wpdb->get_var("SHOW TABLES LIKE $table_name;"))){
+        if (empty($wpdb->get_var("SHOW TABLES LIKE '$table_name';"))){
             ?>
             <div class="notice notice-error is-dismissible">
                 <p><?php _e('WARNING: TABLE '.$table_name. " WAS NOT CREATED! PLEASE REACTIVATE THE PLUGIN : rw sso REST Auth Client "); ?> </p>
             </div>
             <?php
             }
-
             }
 
     /**
