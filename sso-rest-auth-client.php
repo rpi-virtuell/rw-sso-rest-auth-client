@@ -178,7 +178,7 @@ class SsoRestAuthClient
      */
     public function remote_logout()
     {
-        wp_redirect(KONTO_SERVER . '/wp-login.php?action=logout&redirect_to=' . home_url());
+        wp_redirect(KONTO_SERVER . '/wp-login.php?action=remote_logout&redirect_to=' . home_url());
         die();
     }
 
@@ -575,9 +575,9 @@ class SsoRestAuthClient
 
     /**
      * Provide HTML to display a dropdown with all roles of the WordPress server
+     * @return string
      * @since 1.0
      * @action init_invite_user_page
-     * @return string
      */
     private function prepare_role_html()
     {
