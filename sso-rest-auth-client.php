@@ -320,7 +320,7 @@ class SsoRestAuthClient
                 return $attempts;
             }
         } else {
-            return new WP_Error('Missing Parameters', __('Username and Password are required!', 'rw-sso-client'));
+           return $user;
         }
     }
 
