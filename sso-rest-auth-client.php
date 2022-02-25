@@ -62,7 +62,7 @@ class SsoRestAuthClient
 
         global $wpdb;
 
-        $table_name = $wpdb->prefix . 'failed_login_log';
+        $table_name = $wpdb->base_prefix . 'failed_login_log';
 
         if (empty($wpdb->get_var("SHOW TABLES LIKE '$table_name';"))){
             ?>
@@ -83,7 +83,7 @@ class SsoRestAuthClient
     {
         global $wpdb;
 
-        $table_name = $wpdb->prefix . 'failed_login_log';
+        $table_name = $wpdb->base_prefix . 'failed_login_log';
         $charset_collate = $wpdb->get_charset_collate();
 
         $sql = "CREATE TABLE IF NOT EXISTS $table_name (
@@ -108,7 +108,7 @@ class SsoRestAuthClient
     {
         global $wpdb;
 
-        $table_name = $wpdb->prefix . 'failed_login_log';
+        $table_name = $wpdb->base_prefix . 'failed_login_log';
 
         $sql = "DROP TABLE IF EXISTS `$table_name`;";
 
@@ -127,14 +127,14 @@ class SsoRestAuthClient
         $ip = $_SERVER['REMOTE_ADDR'];
         $hash = md5($username . $ip);
         global $wpdb;
-        $versuche = $wpdb->get_var("SELECT count(*) FROM {$wpdb->prefix}failed_login_log WHERE hash = '{$hash}' and last_login > UNIX_TIMESTAMP()-(60*20)");
+        $versuche = $wpdb->get_var("SELECT count(*) FROM {$wpdb->base_prefix}failed_login_log WHERE hash = '{$hash}' and last_login > UNIX_TIMESTAMP()-(60*20)");
         if (intval($versuche) > 3) {
-            $lastlogin = $wpdb->get_var("SELECT last_login FROM {$wpdb->prefix}failed_login_log WHERE hash = '{$hash}' ORDER BY last_login DESC LIMIT 1");
+            $lastlogin = $wpdb->get_var("SELECT last_login FROM {$wpdb->base_prefix}failed_login_log WHERE hash = '{$hash}' ORDER BY last_login DESC LIMIT 1");
             $lastlogin -= time() - 1200;
             $lastlogin = intval($lastlogin / 60);
 
             return new WP_Error('max_invalid_logins', sprintf(__("The maximum amount of login attempts has been reached please wait %d minutes", 'rw-sso-client'), $lastlogin));
-        } elseif (5 < $wpdb->get_var("SELECT count(*) FROM {$wpdb->prefix}failed_login_log WHERE ip = '$ip' and last_login > UNIX_TIMESTAMP()-(60*20)")) {
+        } elseif (5 < $wpdb->get_var("SELECT count(*) FROM {$wpdb->base_prefix}failed_login_log WHERE ip = '$ip' and last_login > UNIX_TIMESTAMP()-(60*20)")) {
             return new WP_Error('max_invalid_logins', __("The maximum amount of login attempts has been reached!", 'rw-sso-client'));
         } else {
             return true;
@@ -151,7 +151,7 @@ class SsoRestAuthClient
 
         global $wpdb;
 
-        $table_name = $wpdb->prefix . 'failed_login_log';
+        $table_name = $wpdb->base_prefix . 'failed_login_log';
 
         $sql = "DELETE FROM `$table_name` WHERE last_login < UNIX_TIMESTAMP()-(60*20);";
 
@@ -173,7 +173,7 @@ class SsoRestAuthClient
         global $wpdb;
 
         $result = $wpdb->insert(
-            $wpdb->prefix . 'failed_login_log',
+            $wpdb->base_prefix . 'failed_login_log',
             array(
                 'hash' => $hash,
                 'ip' => $ip,
