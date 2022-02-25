@@ -238,11 +238,16 @@ class SsoRestAuthClient
                     'login_token' => $login_token,
                 )));
             $response = json_decode(wp_remote_retrieve_body($response));
-            var_dump($response);
             if (!is_wp_error($response)) {
                 if (isset($response->success)) {
                     if ($response->success) {
                         $user = get_user_by('login', $response->user_login);
+                        if (!$user && in_array($response->user_login, get_super_admins()))
+                        {
+                          switch_to_blog(1);
+                          $user = get_user_by('login', $response->user_login);
+                          restore_current_blog();
+                        }
                         wp_set_current_user($user->ID);
                         wp_set_auth_cookie($user->ID);
                         $redirect_to = home_url();
