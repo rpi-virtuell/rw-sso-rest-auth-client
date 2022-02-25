@@ -16,6 +16,8 @@ class SsoRestAuthClient
 {
 
 
+
+
     /**
      * Plugin constructor.
      *
@@ -45,6 +47,7 @@ class SsoRestAuthClient
         add_action('wp_ajax_invite_user_via_ajax', array($this, 'invite_user_via_ajax'));
         register_activation_hook(__FILE__, array($this, 'create_failed_login_log_table'));
         register_deactivation_hook(__FILE__, array($this, 'delete_failed_login_log_table'));
+        add_action('admin_notices', array($this, 'backend_notifier'));
         add_filter('lostpassword_url', function () {
             return KONTO_SERVER . '/wp-login.php?action=lostpassword';
         });
@@ -53,6 +56,23 @@ class SsoRestAuthClient
         });
 
     }
+
+    public function backend_notifier()
+    {
+
+        global $wpdb;
+
+        $table_name = $wpdb->prefix . 'failed_login_log';
+
+        if (empty($wpdb->get_var("SHOW TABLES LIKE $table_name;"))){
+            ?>
+            <div class="notice notice-error is-dismissible">
+                <p><?php _e('WARNING: TABLE '.$table_name. " WAS NOT CREATED! PLEASE REACTIVATE THE PLUGIN : rw sso REST Auth Client "); ?> </p>
+            </div>
+            <?php
+            }
+
+            }
 
     /**
      * Create Table which logs failed login attempts on plugin activation
