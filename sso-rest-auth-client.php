@@ -54,6 +54,12 @@ class SsoRestAuthClient
 
     }
 
+    /**
+     * Create Table which logs failed login attempts on plugin activation
+     * @since 1.0
+     * @action plugin activation
+     * @access public
+     */
     public function create_failed_login_log_table()
     {
         global $wpdb;
@@ -73,6 +79,12 @@ class SsoRestAuthClient
         $wpdb->query($sql);
     }
 
+    /**
+     * Delete Table which logs failed login attempts on plugin deactivation
+     * @since 1.0
+     * @action plugin deactivation
+     * @access public
+     */
     public function delete_failed_login_log_table()
     {
         global $wpdb;
@@ -84,10 +96,15 @@ class SsoRestAuthClient
         $wpdb->query($sql);
     }
 
-
+    /**
+     * Check if user (accessed via specific IP) has less than 4 login attempts or last lock is older than 20 Minutes old
+     * @param $username
+     * @return bool|WP_Error
+     * @since 1.0
+     * @action check_credentials
+     */
     public function check_login_attempts($username)
     {
-
         $ip = $_SERVER['REMOTE_ADDR'];
         $hash = md5($username . $ip);
         global $wpdb;
@@ -105,6 +122,11 @@ class SsoRestAuthClient
         }
     }
 
+    /**
+     * Delete failed login attempts which are older than 20 Minutes
+     * @since 1.0
+     * @action check_credentials
+     */
     public function cleanup_old_failed_login_attempts()
     {
 
@@ -118,6 +140,12 @@ class SsoRestAuthClient
 
     }
 
+    /**
+     * Add a new failed login attempt
+     * @param $username
+     * @since 1.0
+     * @action check_credentials
+     */
     public function add_failed_login_attempt($username)
     {
 
@@ -143,28 +171,46 @@ class SsoRestAuthClient
 
     }
 
-    public  function remote_logout(){
-       wp_redirect(KONTO_SERVER.'/wp-login.php?action=logout&redirect_to='.home_url());
-       die();
+    /**
+     * Logout the current user of the Konto server and get redirected back to the home_url
+     * @since 1.0
+     * @action wp_logout
+     */
+    public function remote_logout()
+    {
+        wp_redirect(KONTO_SERVER . '/wp-login.php?action=logout&redirect_to=' . home_url());
+        die();
     }
-    public function remote_login(){
-        $login_token = get_user_meta(get_current_user_id(),'rw_sso_login_token',true);
-        if (!empty($login_token))
-        {
+
+    /**
+     * Set the login token if a login token is set in meta data of the current user
+     * @since 1.0
+     * @action wp_head
+     * @action admin_head
+     */
+    public function remote_login()
+    {
+        $login_token = get_user_meta(get_current_user_id(), 'rw_sso_login_token', true);
+        if (!empty($login_token)) {
             ?>
-            <script src="<?php echo KONTO_SERVER . '?login_token='. $login_token ?>">
+            <script src="<?php echo KONTO_SERVER . '?login_token=' . $login_token ?>">
             </script>
             <?php
             delete_user_meta(get_current_user_id(), 'rw_sso_login_token');
         }
     }
 
+    /**
+     * Login the user via login token provided via url and check its validity via REST call to the Konto server
+     * @since 1.0
+     * @action login_head
+     */
     public function login_through_token()
     {
         if (is_user_logged_in()) {
             return;
         }
-        if(isset($_GET['rw_sso_login_token'])) {
+        if (isset($_GET['rw_sso_login_token'])) {
             $login_token = $_GET['rw_sso_login_token'];
             $url = KONTO_SERVER . '/wp-json/sso/v1/check_login_token';
             $response = wp_remote_post($url, array(
@@ -193,7 +239,7 @@ class SsoRestAuthClient
             </script>
             <script>
                 if (rw_sso_login_token) {
-                    location.href = '?rw_sso_login_token=' + rw_sso_login_token + '&redirect='+ encodeURI(location.href);
+                    location.href = '?rw_sso_login_token=' + rw_sso_login_token + '&redirect=' + encodeURI(location.href);
                 }
             </script>
             <?php
@@ -201,7 +247,15 @@ class SsoRestAuthClient
         }
     }
 
-
+    /**
+     * Central Method to handle the main Single Sign On logic
+     * @param $user
+     * @param $username
+     * @param $password
+     * @return WP_Error|WP_User
+     * @since 1.0
+     * @action authenticate
+     */
     public function check_credentials($user, $username, $password)
     {
         if (!empty($username) && !empty($password)) {
@@ -224,13 +278,13 @@ class SsoRestAuthClient
                     if (isset($response->success)) {
                         if ($response->success) {
                             if ($user = get_user_by('login', $username)) {
-                                update_user_meta($user->ID,'rw_sso_login_token',$response->profile->login_token);
+                                update_user_meta($user->ID, 'rw_sso_login_token', $response->profile->login_token);
                                 if (is_multisite() && !is_user_member_of_blog($user->ID, get_current_blog_id())) {
                                     add_user_to_blog(get_current_blog_id(), $user->ID, get_option('default_role'));
                                 }
                                 return $user;
                             } elseif ($user = get_user_by('email', $username)) {
-                                update_user_meta($user->ID,'rw_sso_login_token',$response->profile->login_token);
+                                update_user_meta($user->ID, 'rw_sso_login_token', $response->profile->login_token);
                                 if (is_multisite() && !is_user_member_of_blog($user->ID, get_current_blog_id())) {
                                     add_user_to_blog(get_current_blog_id(), $user->ID, get_option('default_role'));
                                 }
@@ -244,18 +298,16 @@ class SsoRestAuthClient
                                     'display_name' => $response->profile->display_name,
                                     'user_email' => $response->profile->user_email
                                 ));
-                                update_user_meta($user_id,'rw_sso_login_token',$response->profile->login_token);
+                                update_user_meta($user_id, 'rw_sso_login_token', $response->profile->login_token);
                                 if (is_wp_error($user_id)) {
                                     return $user_id;
                                 } else {
                                     return get_user_by('id', $user_id);
-
                                 }
                             }
 
                         } else {
                             $this->add_failed_login_attempt($username);
-
                             return new WP_Error('Wrong credentials', __('Username or password is invalid', 'rw-sso-client'));
                         }
                     } else {
@@ -272,19 +324,33 @@ class SsoRestAuthClient
         }
     }
 
+    /**
+     * Redirect Users to the invite users page if user_new.php is accessed
+     * @action user_new_form_tag
+     * @since  1.0
+     */
     function redir_new_user()
     {
         wp_redirect(home_url() . '/wp-admin/users.php?page=invite_user');
     }
 
+    /**
+     * Remove and Add new menu User "creation" pages
+     * @action admin_menu
+     * @since 1.0
+     */
     function add_invite_user_user_page()
     {
         remove_submenu_page('users.php', 'user-new.php');
         add_users_page('invite_user', __('Invite User', 'rw-sso-client'), 'edit_users', 'invite_user', array($this, 'init_invite_user_page'), 1);
     }
 
-    public
-    function get_users_via_ajax()
+    /**
+     * Provide a Json with User data html
+     * @action wp_ajax_get_users_via_ajax
+     * @since 1.0
+     */
+    public function get_users_via_ajax()
     {
         $search_input = isset($_POST['search_input']) ? $_POST['search_input'] : '';
         $return = array('success' => false);
@@ -313,6 +379,11 @@ class SsoRestAuthClient
         die();
     }
 
+    /**
+     * Creates a User which is provided via ajax and returns its id
+     * @since 1.0
+     * @action wp_ajax_invite_user_via_ajax
+     */
     public function invite_user_via_ajax()
     {
         $return = array('success' => false);
@@ -350,6 +421,11 @@ class SsoRestAuthClient
         die();
     }
 
+    /**
+     * Provide HTML information for the construction of a new User Menu Page to invite Users of a Konto Server
+     * @since 1.0
+     * @action add_users_page
+     */
     function init_invite_user_page()
     {
 
@@ -497,6 +573,12 @@ class SsoRestAuthClient
 
     }
 
+    /**
+     * Provide HTML to display a dropdown with all roles of the WordPress server
+     * @since 1.0
+     * @action init_invite_user_page
+     * @return string
+     */
     private function prepare_role_html()
     {
         $return = '<label for="role">Rolle festlegen</label><select name="role" id="role">';
