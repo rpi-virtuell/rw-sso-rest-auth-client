@@ -54,7 +54,12 @@ class SsoRestAuthClient
         add_filter('register_url', function () {
             return KONTO_SERVER . '/wp-login.php?action=register';
         });
-
+        add_action('before_signup_header',function (){
+           if(!is_user_logged_in()){
+             wp_redirect(KONTO_SERVER . '/wp-login.php?action=register');
+             exit();
+           }
+        });
     }
 
     /**
