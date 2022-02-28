@@ -57,6 +57,12 @@ class SsoRestAuthClient
 
     }
 
+    /**
+     * Sends a backend Notification which checks if the table failed_login_log is present and notifies the user if it isn't
+     * @since 1.0.1
+     * @access public
+     * @action admin_notices
+     */
     public function backend_notifier()
     {
 
