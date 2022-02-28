@@ -289,13 +289,9 @@ class SsoRestAuthClient
     public function check_credentials($user, $username, $password)
     {
         if (!empty($username) && !empty($password)) {
-
             $this->cleanup_old_failed_login_attempts();
             if (!is_wp_error($attempts = $this->check_login_attempts($username))) {
-                if (is_a($user, 'WP_User')) {
-                    return $user;
-                }
-                $url = KONTO_SERVER . '/wp-json/sso/v1/check_credentials';
+                $url = KONTO_SERVER .'/wp-json/sso/v1/check_credentials';
                 $response = wp_remote_post($url, array(
                     'method' => 'POST',
                     'body' => array(
@@ -303,8 +299,8 @@ class SsoRestAuthClient
                         'password' => $password,
                         'origin_url' => home_url()
                     )));
-                $response = json_decode(wp_remote_retrieve_body($response));
                 if (!is_wp_error($response)) {
+                    $response = json_decode(wp_remote_retrieve_body($response));
                     if (isset($response->success)) {
                         if ($response->success) {
                             if ($user = get_user_by('login', $username)) {
@@ -328,10 +324,10 @@ class SsoRestAuthClient
                                     'display_name' => $response->profile->display_name,
                                     'user_email' => $response->profile->user_email
                                 ));
-                                update_user_meta($user_id, 'rw_sso_login_token', $response->profile->login_token);
                                 if (is_wp_error($user_id)) {
                                     return $user_id;
                                 } else {
+                                    update_user_meta($user_id, 'rw_sso_login_token', $response->profile->login_token);
                                     return get_user_by('id', $user_id);
                                 }
                             }
@@ -341,10 +337,13 @@ class SsoRestAuthClient
                             return new WP_Error('Wrong credentials', __('Username or password is invalid', 'rw-sso-client'));
                         }
                     } else {
-                        return new WP_Error('NoResponse', __('No Response from Remote Login Server!', 'rw-sso-client'));
+                        return new WP_Error('NoResponse', __('No Response from Remote Login Server! Please inform the Administrator!', 'rw-sso-client'));
                     }
                 } else {
-                    return $response;
+                    if (is_a($user, 'WP_User')) {
+                        return $user;
+                    }
+                    return new WP_Error('NoResponse', __('No Response from Remote Login Server! Please inform the Administrator!', 'rw-sso-client'));
                 }
             } else {
                 return $attempts;
