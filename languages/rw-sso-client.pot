@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rw sso REST Auth Client\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-02-22 16:00+0000\n"
+"POT-Creation-Date: 2022-02-28 13:19+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: \n"
@@ -30,32 +30,28 @@ msgstr ""
 msgid "https://github.com/rpi-virtuell/rw-sso-rest-auth-client"
 msgstr ""
 
-#: sso-rest-auth-client.php:224
+#: sso-rest-auth-client.php:374
 msgid "Invite User"
 msgstr ""
 
-#: sso-rest-auth-client.php:201
-msgid "No Response from Remote Login Server!"
+#: sso-rest-auth-client.php:340 sso-rest-auth-client.php:346
+msgid "No Response from Remote Login Server! Please inform the Administrator!"
 msgstr ""
 
 #. Name of the plugin
 msgid "rw sso REST Auth Client"
 msgstr ""
 
-#: sso-rest-auth-client.php:99
+#: sso-rest-auth-client.php:142
 #, php-format
 msgid ""
 "The maximum amount of login attempts has been reached please wait %d minutes"
 msgstr ""
 
-#: sso-rest-auth-client.php:102
+#: sso-rest-auth-client.php:144
 msgid "The maximum amount of login attempts has been reached!"
 msgstr ""
 
-#: sso-rest-auth-client.php:212
-msgid "Username and Password are required!"
-msgstr ""
-
-#: sso-rest-auth-client.php:198
+#: sso-rest-auth-client.php:337
 msgid "Username or password is invalid"
 msgstr ""
