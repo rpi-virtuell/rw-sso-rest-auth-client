@@ -4,7 +4,7 @@
  * Plugin URI:       https://github.com/rpi-virtuell/rw-sso-rest-auth-client
  * Description:      Client Authentication tool to compare Wordpress login Data with a Remote Login Server
  * Author:           Daniel Reintanz
- * Version:          1.0.1
+ * Version:          1.1.0
  * Domain Path:     /languages
  * Text Domain:      rw-sso-client
  * Licence:          GPLv3
@@ -28,7 +28,7 @@ class SsoRestAuthClient
      */
     public function __construct()
     {
-        if (!defined('KONTO_SERVER')) {
+	    if (!defined('KONTO_SERVER')) {
             if (getenv('KONTO_SERVER'))
                 define('KONTO_SERVER', getenv('KONTO_SERVER'));
             else
@@ -36,12 +36,12 @@ class SsoRestAuthClient
                 wp_die('Environmental Var KONTO_SERVER is not defined');
         }
         add_filter('authenticate', array($this, 'check_credentials'), 999, 3);
-        add_action('login_head', array($this, 'login_through_token'));
+        add_action('init', array($this, 'login_through_token'));
         add_action('wp_logout', array($this, 'remote_logout'));
         add_action('wp_head', array($this, 'remote_login'));
         add_action('admin_head', array($this, 'remote_login'));
         add_action('admin_menu', array($this, 'add_invite_user_user_page'), 999);
-        add_action('user_new_form_tag', array($this, 'redir_new_user'), 999);
+        add_action('user_new_form', array($this, 'redir_new_user'), 999);
         add_action('wp_ajax_search_user', 'ajax_search_user');
         add_action('wp_ajax_get_users_via_ajax', array($this, 'get_users_via_ajax'));
         add_action('wp_ajax_invite_user_via_ajax', array($this, 'invite_user_via_ajax'));
@@ -52,11 +52,14 @@ class SsoRestAuthClient
             return KONTO_SERVER . '/wp-login.php?action=lostpassword';
         });
         add_filter('register_url', function () {
-            return KONTO_SERVER . '/wp-login.php?action=register';
-        });
-        add_action('before_signup_header',function (){
+            return KONTO_SERVER . '/wp-login.php?action=register&ref_service='.urlencode(home_url());
+        },100000);
+
+
+        //maybe use instead before_signup_form?
+	    add_action('before_signup_header',function (){
            if(!is_user_logged_in()){
-             wp_redirect(KONTO_SERVER . '/wp-login.php?action=register');
+             wp_redirect(KONTO_SERVER . '/wp-login.php?action=register&ref_service='.urlencode(home_url()));
              exit();
            }
         });
@@ -81,8 +84,8 @@ class SsoRestAuthClient
                 <p><?php _e('WARNING: TABLE '.$table_name. " WAS NOT CREATED! PLEASE REACTIVATE THE PLUGIN : rw sso REST Auth Client "); ?> </p>
             </div>
             <?php
-            }
-            }
+        }
+    }
 
     /**
      * Create Table which logs failed login attempts on plugin activation
@@ -261,7 +264,7 @@ class SsoRestAuthClient
                         }
                         wp_set_current_user($user->ID);
                         wp_set_auth_cookie($user->ID);
-                        $redirect_to = home_url();
+	                    $redirect_to = home_url();
                         wp_safe_redirect($redirect_to);
                         exit();
                     }
@@ -360,12 +363,18 @@ class SsoRestAuthClient
 
     /**
      * Redirect Users to the invite users page if user_new.php is accessed
-     * @action user_new_form_tag
+     * @action user_new_form
      * @since  1.0
      */
     function redir_new_user()
     {
-        wp_redirect(home_url() . '/wp-admin/users.php?page=invite_user');
+       ?>
+            <script>
+                location.href = "<?php echo admin_url() . '/users.php?page=invite_user';?>";
+            </script>
+        <?php
+        wp_redirect(admin_url() . '/users.php?page=invite_user');
+        die();
     }
 
     /**
@@ -462,6 +471,7 @@ class SsoRestAuthClient
      */
     function init_invite_user_page()
     {
+	    $register_url = KONTO_SERVER.'/register/'. str_replace('https://', '',home_url());
 
         ?>
         <style>
@@ -500,20 +510,34 @@ class SsoRestAuthClient
                 margin-bottom: 20px !important;
             }
 
+            .copy_field{
+                width:600px;max-width: 100%;
+
+                background-color: transparent!important;
+
+            }
+
         </style>
         <div class="wrap">
-            <h1>Nutzer hinzufügen</h1>
-
-            <input id="suche" placeholder="Nutzername oder Email">
-            <button id="search-button" type="button">Suchen</button>
-            <p class="results-info">Gewünschten Nutzer auswählen</p>
-            <div id="results">Ergebnisse</div>
+            <h1><?php echo __('Add user','rw-sso-client');?></h1>
+            <div class="invite_user_form">
+                <p><?php echo __('Invite other users to join your blog. You can search for users who have already registered here','rw-sso-client');?>.</p>
+                <input id="suche" placeholder="<?php echo __('Username or Email','rw-sso-client');?>">
+                <button id="search-button" type="button">Suchen</button>
+                <p class="results-info"><?php echo __('Select desired user (klick)','rw-sso-client');?></p>
+            </div>
+            <div id="results"></div>
             <div id="user_invite_form" style="display:none;">
                 <input type="hidden" id="selected_user">
                 <span id="selected_user_display"></span>
                 <?php echo $this->prepare_role_html(); ?>
-                <button type="button" id="invite_user">Nutzer anlegen</button>
+                <button type="button" id="invite_user"><?php echo __('Add user','rw-sso-client');?></button>
             </div>
+            <p><?php echo __('Send unregistered users a','rw-sso-client');?> <a href="<?php echo $register_url; ?>">
+		            <?php echo __('invitation link','rw-sso-client');?></a> <?php echo __('for your blog','rw-sso-client');?>:<br>
+                <input type="text" class="copy_field" value="<?php echo $register_url; ?>">
+            </p>
+
         </div>
 
 
@@ -586,10 +610,10 @@ class SsoRestAuthClient
                         success: function (data, textStatus, XMLHttpRequest) { //erfolgreiche anfrage
                             if ($('#results') && data.success === true) {
                                 $('#user_invite_form').hide();
-                                $('#results').html($('#selected_user').val() + ' wurde erfolgreich hinzugefügt!');
+                                $('#results').html($('#selected_user').val() + ' <?php echo __('was added successfully','rw-sso-client'); ?>!');
                             }
                             if ($('#results') && data.success === false) {
-                                $('#results').html($('#selected_user').val() + ' konnte nicht hinzugefügt werden!');
+                                $('#results').html($('#selected_user').val() + ' <?php echo __('could not be added','rw-sso-client'); ?>!');
                             }
                         },
 
@@ -626,6 +650,7 @@ class SsoRestAuthClient
         $return .= '</select> ';
         return $return;
     }
+
 }
 
 
