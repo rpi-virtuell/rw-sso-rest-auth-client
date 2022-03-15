@@ -3,10 +3,10 @@ msgstr ""
 "Project-Id-Version: rw sso REST Auth Client\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2022-02-22 15:16+0000\n"
-"PO-Revision-Date: 2022-02-28 13:20+0000\n"
+"PO-Revision-Date: 2022-03-15 13:10+0000\n"
 "Last-Translator: \n"
 "Language-Team: Deutsch\n"
-"Language: de_DE\n"
+"Language: de-DE\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -15,25 +15,51 @@ msgstr ""
 "X-Loco-Version: 2.5.8; wp-5.9\n"
 "X-Domain: rw-sso-client"
 
+#: sso-rest-auth-client.php:522 sso-rest-auth-client.php:534
+msgid "Add user"
+msgstr "Benutzer hinzufügen"
+
 #. Description of the plugin
 msgid ""
 "Client Authentication tool to compare Wordpress login Data with a Remote "
 "Login Server"
 msgstr ""
+"Client-Authentifizierungstool zum Abgleich von Wordpress-Anmeldedaten mit "
+"einem Remote-Login-Server"
+
+#: sso-rest-auth-client.php:616
+msgid "could not be added"
+msgstr "konnte nicht hinzugefügt werden"
 
 #. Author of the plugin
 msgid "Daniel Reintanz"
-msgstr ""
+msgstr "Daniel Reintanz"
+
+#: sso-rest-auth-client.php:537
+msgid "for your blog"
+msgstr "für Ihre Webseite"
 
 #. URI of the plugin
 msgid "https://github.com/rpi-virtuell/rw-sso-rest-auth-client"
-msgstr ""
+msgstr "https://github.com/rpi-virtuell/rw-sso-rest-auth-client"
 
-#: sso-rest-auth-client.php:374
+#: sso-rest-auth-client.php:537
+msgid "invitation link"
+msgstr "Einladungslink"
+
+#: sso-rest-auth-client.php:524
+msgid ""
+"Invite other users to join your blog. You can search for users who have "
+"already registered here"
+msgstr ""
+"Laden Sie andere Benutzer ein, Ihrem Blog beizutreten. Sie können hier nach "
+"Benutzern suchen, die sich bereits registriert haben"
+
+#: sso-rest-auth-client.php:388
 msgid "Invite User"
 msgstr "Benutzer einladen"
 
-#: sso-rest-auth-client.php:340 sso-rest-auth-client.php:346
+#: sso-rest-auth-client.php:348 sso-rest-auth-client.php:354
 msgid "No Response from Remote Login Server! Please inform the Administrator!"
 msgstr ""
 "Keine Antwort vom Remote Login Server! Bitte informieren Sie den "
@@ -41,9 +67,17 @@ msgstr ""
 
 #. Name of the plugin
 msgid "rw sso REST Auth Client"
-msgstr ""
+msgstr "rw sso REST Auth Client"
 
-#: sso-rest-auth-client.php:142
+#: sso-rest-auth-client.php:527
+msgid "Select desired user (klick)"
+msgstr "Gewünschten Benutzer auswählen (anklicken)"
+
+#: sso-rest-auth-client.php:536
+msgid "Send unregistered users a"
+msgstr "Senden Sie nicht registrierten Benutzern eine"
+
+#: sso-rest-auth-client.php:150
 #| msgid "The maximum amount of login attempts has been reached please wait "
 msgid ""
 "The maximum amount of login attempts has been reached please wait %d minutes"
@@ -51,10 +85,18 @@ msgstr ""
 "Die maximale Anzahl der Anmeldeversuche wurde erreicht, bitte warten Sie %d "
 "Minuten"
 
-#: sso-rest-auth-client.php:144
+#: sso-rest-auth-client.php:152
 msgid "The maximum amount of login attempts has been reached!"
 msgstr "Die maximale Anzahl an Anmeldeversuchen wurde erreicht!"
 
-#: sso-rest-auth-client.php:337
+#: sso-rest-auth-client.php:525
+msgid "Username or Email"
+msgstr "Benutzername oder E-Mail"
+
+#: sso-rest-auth-client.php:345
 msgid "Username or password is invalid"
 msgstr "Benutzername oder Passwort ist ungültig"
+
+#: sso-rest-auth-client.php:613
+msgid "was added successfully"
+msgstr "was added successfully"
