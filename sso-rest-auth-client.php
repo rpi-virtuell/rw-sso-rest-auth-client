@@ -521,7 +521,7 @@ class SsoRestAuthClient
         <div class="wrap">
             <h1><?php echo __('Add user','rw-sso-client');?></h1>
             <div class="invite_user_form">
-                <p><?php echo __('Invite other users to join your blog. You can search for users who have already registered here','rw-sso-client');?>.</p>
+                <p><?php echo __('Invite other users to collaborate on your website. You can search for users who have already registered here','rw-sso-client');?>.</p>
                 <input id="suche" placeholder="<?php echo __('Username or Email','rw-sso-client');?>">
                 <button id="search-button" type="button">Suchen</button>
                 <p class="results-info"><?php echo __('Select desired user (klick)','rw-sso-client');?></p>

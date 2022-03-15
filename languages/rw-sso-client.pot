@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rw sso REST Auth Client\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-02-28 13:19+0000\n"
+"POT-Creation-Date: 2022-03-15 13:49+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: \n"
@@ -16,25 +16,47 @@ msgstr ""
 "X-Loco-Version: 2.5.8; wp-5.9\n"
 "X-Domain: rw-sso-client"
 
+#: sso-rest-auth-client.php:522 sso-rest-auth-client.php:534
+msgid "Add user"
+msgstr ""
+
 #. Description of the plugin
 msgid ""
 "Client Authentication tool to compare Wordpress login Data with a Remote "
 "Login Server"
 msgstr ""
 
+#: sso-rest-auth-client.php:616
+msgid "could not be added"
+msgstr ""
+
 #. Author of the plugin
 msgid "Daniel Reintanz"
+msgstr ""
+
+#: sso-rest-auth-client.php:537
+msgid "for your blog"
 msgstr ""
 
 #. URI of the plugin
 msgid "https://github.com/rpi-virtuell/rw-sso-rest-auth-client"
 msgstr ""
 
-#: sso-rest-auth-client.php:374
+#: sso-rest-auth-client.php:537
+msgid "invitation link"
+msgstr ""
+
+#: sso-rest-auth-client.php:524
+msgid ""
+"Invite other users to collaborate on your website. You can search for users "
+"who have already registered here"
+msgstr ""
+
+#: sso-rest-auth-client.php:388
 msgid "Invite User"
 msgstr ""
 
-#: sso-rest-auth-client.php:340 sso-rest-auth-client.php:346
+#: sso-rest-auth-client.php:348 sso-rest-auth-client.php:354
 msgid "No Response from Remote Login Server! Please inform the Administrator!"
 msgstr ""
 
@@ -42,16 +64,32 @@ msgstr ""
 msgid "rw sso REST Auth Client"
 msgstr ""
 
-#: sso-rest-auth-client.php:142
+#: sso-rest-auth-client.php:527
+msgid "Select desired user (klick)"
+msgstr ""
+
+#: sso-rest-auth-client.php:536
+msgid "Send unregistered users a"
+msgstr ""
+
+#: sso-rest-auth-client.php:150
 #, php-format
 msgid ""
 "The maximum amount of login attempts has been reached please wait %d minutes"
 msgstr ""
 
-#: sso-rest-auth-client.php:144
+#: sso-rest-auth-client.php:152
 msgid "The maximum amount of login attempts has been reached!"
 msgstr ""
 
-#: sso-rest-auth-client.php:337
+#: sso-rest-auth-client.php:525
+msgid "Username or Email"
+msgstr ""
+
+#: sso-rest-auth-client.php:345
 msgid "Username or password is invalid"
+msgstr ""
+
+#: sso-rest-auth-client.php:613
+msgid "was added successfully"
 msgstr ""
