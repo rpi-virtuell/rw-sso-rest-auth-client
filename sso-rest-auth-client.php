@@ -4,7 +4,7 @@
  * Plugin URI:       https://github.com/rpi-virtuell/rw-sso-rest-auth-client
  * Description:      Client Authentication tool to compare Wordpress login Data with a Remote Login Server
  * Author:           Daniel Reintanz
- * Version:          1.1.0
+ * Version:          1.1.2
  * Domain Path:     /languages
  * Text Domain:      rw-sso-client
  * Licence:          GPLv3
@@ -271,16 +271,19 @@ class SsoRestAuthClient
                 }
             }
             die();
-        } else {
-            ?>
-            <script src="<?php echo KONTO_SERVER . '?action=check_token' ?>">
-            </script>
-            <script>
-                if (rw_sso_login_token) {
-                    location.href = '?rw_sso_login_token=' + rw_sso_login_token + '&redirect=' + encodeURI(location.href);
-                }
-            </script>
-            <?php
+        } elseif(  !is_feed() && !wp_doing_ajax() ) {
+            //add Javascript checks to the html head
+	        add_action('wp_head',function(){
+		        ?>
+                <script src="<?php echo KONTO_SERVER . '?action=check_token' ?>">
+                </script>
+                <script>
+                    if (rw_sso_login_token) {
+                        location.href = '?rw_sso_login_token=' + rw_sso_login_token + '&redirect=' + encodeURI(location.href);
+                    }
+                </script>
+                <?php echo "\n";
+			},1);
 
         }
     }
@@ -370,10 +373,10 @@ class SsoRestAuthClient
     {
        ?>
             <script>
-                location.href = "<?php echo admin_url() . '/users.php?page=invite_user';?>";
+                location.href = "<?php echo admin_url() . 'users.php?page=invite_user';?>";
             </script>
         <?php
-        wp_redirect(admin_url() . '/users.php?page=invite_user');
+        wp_redirect(admin_url() . 'users.php?page=invite_user');
         die();
     }
 
@@ -500,6 +503,8 @@ class SsoRestAuthClient
                 margin-top: 30px;
                 display: grid;
                 grid-template-columns: 1fr 1fr;
+                border: 3px dotted #c0c0c0;
+                padding: 40px;
             }
 
             .results-info {
@@ -508,6 +513,16 @@ class SsoRestAuthClient
 
             h1 {
                 margin-bottom: 20px !important;
+            }
+
+            #suche{
+                padding: 3px 5px;
+                width:250px;max-width: 100%;
+                font-size: larger;
+            }
+            #search-button{
+                padding: 3px 15px!important;
+                font-size: larger!important;
             }
 
             .copy_field{
@@ -577,6 +592,8 @@ class SsoRestAuthClient
                                     $('#results').append(result);
 
                                 }
+                            }else if ($('#results') && data.success == false) {
+                                $('#results').html('<strong><?php _e('no matches','rw-sso-client');?></strong>');
                             }
                         },
 
