@@ -54,7 +54,6 @@ class SsoRestAuthClient
         add_filter('register_url', function () {
             return KONTO_SERVER . '/wp-login.php?action=register';
         });
-
         add_action('wp_enqueue_scripts', array($this, 'add_sso_client_js'));
 
     }
