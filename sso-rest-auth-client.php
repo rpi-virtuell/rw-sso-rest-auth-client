@@ -4,7 +4,7 @@
  * Plugin URI:       https://github.com/rpi-virtuell/rw-sso-rest-auth-client
  * Description:      Client Authentication tool to compare Wordpress login Data with a Remote Login Server
  * Author:           Daniel Reintanz
- * Version:          1.0.1
+ * Version:          1.1.0
  * Domain Path:     /languages
  * Text Domain:      rw-sso-client
  * Licence:          GPLv3
@@ -55,6 +55,18 @@ class SsoRestAuthClient
             return KONTO_SERVER . '/wp-login.php?action=register';
         });
 
+        add_action('wp_enqueue_scripts', array($this, 'add_sso_client_js'));
+
+    }
+
+    public function add_sso_client_js(){
+        wp_enqueue_script(
+            'template_handling',
+            plugin_dir_url(__FILE__) . '/assets/js/sign_in_redirect.js',
+            array(),
+            '1.0',
+            true
+        );
     }
 
     /**
