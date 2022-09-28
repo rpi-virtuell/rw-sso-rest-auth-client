@@ -4,7 +4,7 @@
  * Plugin URI:       https://github.com/rpi-virtuell/rw-sso-rest-auth-client
  * Description:      Client Authentication tool to compare Wordpress login Data with a Remote Login Server
  * Author:           Daniel Reintanz
- * Version:          1.2.1
+ * Version:          1.2.2
  * Domain Path:     /languages
  * Text Domain:      rw-sso-client
  * Licence:          GPLv3
@@ -372,7 +372,7 @@ class SsoRestAuthClient
      */
     function redir_new_user()
     {
-        if (str_contains($_SERVER['SCRIPT_FILENAME'], 'wp-admin/user-new.php'))
+        if (strpos($_SERVER['SCRIPT_FILENAME'], 'wp-admin/user-new.php') !== false )
         wp_redirect(home_url() . '/wp-admin/users.php?page=invite_user');
     }
 
