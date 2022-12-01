@@ -4,7 +4,7 @@
  * Plugin URI:       https://github.com/rpi-virtuell/rw-sso-rest-auth-client
  * Description:      Client Authentication tool to compare Wordpress login Data with a Remote Login Server
  * Author:           Daniel Reintanz
- * Version:          1.2.3
+ * Version:          1.2.4
  * Domain Path:     /languages
  * Text Domain:      rw-sso-client
  * Licence:          GPLv3
@@ -40,6 +40,7 @@ class SsoRestAuthClient
         add_action('wp_logout', array($this, 'remote_logout'));
         add_action('wp_head', array($this, 'remote_login'));
         add_action('admin_head', array($this, 'remote_login'));
+        add_action('init', array($this,'delete_token_on_login_success'));
         add_action('admin_menu', array($this, 'add_invite_user_user_page'), 999);
         add_action('user_new_form_tag', array($this, 'redir_new_user'), 999);
         add_action('init', array($this, 'redir_new_user'), 999);
@@ -227,13 +228,30 @@ class SsoRestAuthClient
      */
     public function remote_login()
     {
-        $login_token = get_user_meta(get_current_user_id(), 'rw_sso_login_token', true);
-        if (!empty($login_token)) {
-            ?>
-            <script src="<?php echo KONTO_SERVER . '?login_token=' . $login_token ?>">
-            </script>
-            <?php
-            delete_user_meta(get_current_user_id(), 'rw_sso_login_token');
+        if (is_user_logged_in()) {
+            $login_token = get_user_meta(get_current_user_id(), 'rw_sso_login_token', true);
+            if (!empty($login_token)) {
+                ?>
+                <script src="<?php echo KONTO_SERVER . '?login_token=' . $login_token . '&user_id=' . get_current_user_id() . '&domain=' . home_url() ?>">
+                </script>
+                <?php
+            }
+
+        }
+    }
+
+    /**
+     * Check if SSO Service has confirmed login via login_token
+     * @since 1.2.4
+     * @action init
+     */
+    public function delete_token_on_login_success(){
+        if ($_POST['action'] === 'sso_delete_token' && isset($_POST['user_id'])){
+            $token = get_user_meta($_POST['user_id'],'rw_sso_login_token',true);
+            if ($token === $_POST['login_token'])
+            {
+                delete_user_meta($_POST['user_id'], 'rw_sso_login_token');
+            }
         }
     }
 
