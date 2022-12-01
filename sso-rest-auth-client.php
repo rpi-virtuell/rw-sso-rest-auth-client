@@ -4,7 +4,7 @@
  * Plugin URI:       https://github.com/rpi-virtuell/rw-sso-rest-auth-client
  * Description:      Client Authentication tool to compare Wordpress login Data with a Remote Login Server
  * Author:           Daniel Reintanz
- * Version:          1.2.6
+ * Version:          1.2.7
  * Domain Path:     /languages
  * Text Domain:      rw-sso-client
  * Licence:          GPLv3
@@ -14,8 +14,6 @@
 
 class SsoRestAuthClient
 {
-
-
 
 
     /**
@@ -41,7 +39,7 @@ class SsoRestAuthClient
         add_action('wp_logout', array($this, 'remote_logout'));
         add_action('wp_head', array($this, 'remote_login'));
         add_action('admin_head', array($this, 'remote_login'));
-        add_action('init', array($this,'delete_token_on_login_success'));
+        add_action('init', array($this, 'delete_token_on_login_success'));
         add_action('admin_menu', array($this, 'add_invite_user_user_page'), 999);
         add_action('user_new_form_tag', array($this, 'redir_new_user'), 999);
         add_action('init', array($this, 'redir_new_user'), 999);
@@ -61,7 +59,8 @@ class SsoRestAuthClient
 
     }
 
-    public function add_sso_client_js(){
+    public function add_sso_client_js()
+    {
         wp_enqueue_script(
             'template_handling',
             plugin_dir_url(__FILE__) . '/assets/js/sign_in_redirect.js',
@@ -84,14 +83,14 @@ class SsoRestAuthClient
 
         $table_name = $wpdb->base_prefix . 'failed_login_log';
 
-        if (empty($wpdb->get_var("SHOW TABLES LIKE '$table_name';"))){
+        if (empty($wpdb->get_var("SHOW TABLES LIKE '$table_name';"))) {
             ?>
             <div class="notice notice-error is-dismissible">
-                <p><?php _e('WARNING: TABLE '.$table_name. " WAS NOT CREATED! PLEASE REACTIVATE THE PLUGIN : rw sso REST Auth Client "); ?> </p>
+                <p><?php _e('WARNING: TABLE ' . $table_name . " WAS NOT CREATED! PLEASE REACTIVATE THE PLUGIN : rw sso REST Auth Client "); ?> </p>
             </div>
             <?php
-            }
-            }
+        }
+    }
 
     /**
      * Create Table which logs failed login attempts on plugin activation
@@ -246,11 +245,11 @@ class SsoRestAuthClient
      * @since 1.2.4
      * @action init
      */
-    public function delete_token_on_login_success(){
-        if ($_POST['action'] === 'sso_delete_token' && isset($_POST['user_id'])){
-            $token = get_user_meta($_POST['user_id'],'rw_sso_login_token',true);
-            if ($token === $_POST['login_token'])
-            {
+    public function delete_token_on_login_success()
+    {
+        if ($_POST['action'] === 'sso_delete_token' && isset($_POST['user_id'])) {
+            $token = get_user_meta($_POST['user_id'], 'rw_sso_login_token', true);
+            if ($token === $_POST['login_token']) {
                 delete_user_meta($_POST['user_id'], 'rw_sso_login_token');
             }
         }
@@ -263,7 +262,8 @@ class SsoRestAuthClient
      */
     public function login_through_token()
     {
-        if (is_user_logged_in()) {
+        session_start();
+        if (is_user_logged_in() || isset($_SESSION['sso_remote_user'])) {
             return;
         }
         if (isset($_GET['rw_sso_login_token'])) {
@@ -288,6 +288,8 @@ class SsoRestAuthClient
                         if ($user) {
                             wp_set_current_user($user->ID);
                             wp_set_auth_cookie($user->ID);
+                        } else {
+                            $_SESSION['sso_remote_user'] = 'unknown';
                         }
                         $redirect_to = home_url();
                         wp_safe_redirect($redirect_to);
@@ -297,6 +299,7 @@ class SsoRestAuthClient
             }
             die();
         } else {
+
             ?>
             <script src="<?php echo KONTO_SERVER . '?action=check_token' ?>">
             </script>
@@ -307,7 +310,9 @@ class SsoRestAuthClient
             </script>
             <?php
 
+
         }
+
     }
 
     /**
@@ -324,7 +329,7 @@ class SsoRestAuthClient
         if (!empty($username) && !empty($password)) {
             $this->cleanup_old_failed_login_attempts();
             if (!is_wp_error($attempts = $this->check_login_attempts($username))) {
-                $url = KONTO_SERVER .'/wp-json/sso/v1/check_credentials';
+                $url = KONTO_SERVER . '/wp-json/sso/v1/check_credentials';
                 $response = wp_remote_post($url, array(
                     'method' => 'POST',
                     'body' => array(
@@ -382,7 +387,7 @@ class SsoRestAuthClient
                 return $attempts;
             }
         } else {
-           return $user;
+            return $user;
         }
     }
 
@@ -393,8 +398,8 @@ class SsoRestAuthClient
      */
     function redir_new_user()
     {
-        if (strpos($_SERVER['SCRIPT_FILENAME'], 'wp-admin/user-new.php') !== false )
-        wp_redirect(home_url() . '/wp-admin/users.php?page=invite_user');
+        if (strpos($_SERVER['SCRIPT_FILENAME'], 'wp-admin/user-new.php') !== false)
+            wp_redirect(home_url() . '/wp-admin/users.php?page=invite_user');
     }
 
     /**
@@ -429,11 +434,10 @@ class SsoRestAuthClient
                 if ($response->success) {
                     $return = array('success' => true, 'results' => array());
                     foreach ($response->users as $user) {
-                        array_push($return['results'],
-                            "<div class='single-user-search-result' id='$user->user_login'>
+                        $return['results'][] = "<div class='single-user-search-result' id='$user->user_login'>
                                         <div class='single-user-avatar'> $user->avatar </div>
                                         <div class='single-user-detail'> Nutzername : $user->user_login <br> Name : " . $user->first_name . " " . $user->last_name . "</div>
-                                    </div>");
+                                    </div>";
                     }
                 }
             }
