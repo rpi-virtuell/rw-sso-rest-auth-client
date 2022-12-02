@@ -28,6 +28,7 @@ class SsoRestAuthClient
     {
         if (!defined('KONTO_SERVER')) {
             if (getenv('KONTO_SERVER'))
+                // env var is set in apache2.conf
                 define('KONTO_SERVER', getenv('KONTO_SERVER'));
             else
                 // .htaccess Eintrag fehlt: SetEnv KONTO_SERVER "https://my-wordpress-website.com"
@@ -36,7 +37,7 @@ class SsoRestAuthClient
         add_filter('authenticate', array($this, 'check_credentials'), 999, 3);
         add_action('login_head', array($this, 'login_through_token'));
         add_action('wp_head', array($this, 'login_through_token'));
-        add_action('wp_logout', array($this, 'remote_logout'));
+        add_action('wp_logout', array($this, 'remote_logout'),1);
         add_action('wp_head', array($this, 'remote_login'));
         add_action('admin_head', array($this, 'remote_login'));
         add_action('init', array($this, 'delete_token_on_login_success'));
