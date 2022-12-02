@@ -4,7 +4,7 @@
  * Plugin URI:       https://github.com/rpi-virtuell/rw-sso-rest-auth-client
  * Description:      Client Authentication tool to compare Wordpress login Data with a Remote Login Server
  * Author:           Daniel Reintanz
- * Version:          1.2.10
+ * Version:          1.2.11
  * Domain Path:     /languages
  * Text Domain:      rw-sso-client
  * Licence:          GPLv3
@@ -26,6 +26,7 @@ class SsoRestAuthClient
      */
     public function __construct()
     {
+        session_start();
         if (!defined('KONTO_SERVER')) {
             if (getenv('KONTO_SERVER'))
                 // env var is set in apache2.conf
@@ -218,10 +219,12 @@ class SsoRestAuthClient
     public function remote_logout()
     {
         unset($_SESSION['sso_remote_user']);
+        $token = $_SESSION['rw_sso_login_token'];
+        unset($_SESSION['rw_sso_login_token']);
+
         wp_redirect(
                 KONTO_SERVER .
-                '/wp-login.php?action=remote_logout&login_token='.
-                get_user_meta(get_current_user_id(), 'rw_sso_login_token', true).
+                '/wp-login.php?action=remote_logout&login_token='. $token .
                 '&redirect_to=' . home_url());
         die();
     }
@@ -268,7 +271,7 @@ class SsoRestAuthClient
      */
     public function login_through_token()
     {
-        session_start();
+
         if (is_user_logged_in() || isset($_SESSION['sso_remote_user'])) {
             return;
         }
@@ -349,12 +352,14 @@ class SsoRestAuthClient
                         if ($response->success) {
                             if ($user = get_user_by('login', $username)) {
                                 update_user_meta($user->ID, 'rw_sso_login_token', $response->profile->login_token);
+                               $_SESSION['rw_sso_login_token'] = $response->profile->login_token;
                                 if (is_multisite() && !is_user_member_of_blog($user->ID, get_current_blog_id())) {
                                     add_user_to_blog(get_current_blog_id(), $user->ID, get_option('default_role'));
                                 }
                                 return $user;
                             } elseif ($user = get_user_by('email', $username)) {
                                 update_user_meta($user->ID, 'rw_sso_login_token', $response->profile->login_token);
+                                $_SESSION['rw_sso_login_token'] = $response->profile->login_token;
                                 if (is_multisite() && !is_user_member_of_blog($user->ID, get_current_blog_id())) {
                                     add_user_to_blog(get_current_blog_id(), $user->ID, get_option('default_role'));
                                 }
@@ -372,6 +377,7 @@ class SsoRestAuthClient
                                     return $user_id;
                                 } else {
                                     update_user_meta($user_id, 'rw_sso_login_token', $response->profile->login_token);
+                                    $_SESSION['rw_sso_login_token'] = $response->profile->login_token;
                                     return get_user_by('id', $user_id);
                                 }
                             }
