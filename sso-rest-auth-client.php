@@ -39,8 +39,7 @@ class SsoRestAuthClient
         add_action('login_head', array($this, 'login_through_token'));
         add_action('wp_head', array($this, 'login_through_token'));
         add_action('wp_logout', array($this, 'remote_logout'),1);
-        add_action('wp_head', array($this, 'remote_login'));
-        add_action('admin_head', array($this, 'remote_login'));
+        add_action('init', array($this, 'remote_login'));
         add_action('init', array($this, 'delete_token_on_login_success'));
         add_action('admin_menu', array($this, 'add_invite_user_user_page'), 999);
         add_action('user_new_form_tag', array($this, 'redir_new_user'), 999);
@@ -233,17 +232,17 @@ class SsoRestAuthClient
      * Set the login token if a login token is set in meta data of the current user
      * @since 1.0
      * @action wp_head
-     * @action admin_head
+     * @action init
      */
     public function remote_login()
     {
         if (is_user_logged_in()) {
             $login_token = get_user_meta(get_current_user_id(), 'rw_sso_login_token', true);
-            if (!empty($login_token)) {
-                ?>
-                <script src="<?php echo KONTO_SERVER . '?sso_action=login&login_token=' . $login_token . '&user_id=' . get_current_user_id() . '&domain=' . home_url() ?>">
-                </script>
-                <?php
+			if (!empty($login_token)) {
+				
+				wp_redirect(KONTO_SERVER . '?sso_action=login&login_token=' . $login_token . '&user_id=' . get_current_user_id() . '&domain=' . home_url() .'&redirect_to=' .home_url(). $_SERVER['REQUEST_URI']);
+                die();
+               
             }
 
         }
