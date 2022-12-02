@@ -239,7 +239,7 @@ class SsoRestAuthClient
     {
         if (is_user_logged_in()) {
             $login_token = get_user_meta(get_current_user_id(), 'rw_sso_login_token', true);
-			if (!empty($login_token)) {
+            if (!empty($login_token)) {
 
 				wp_redirect(KONTO_SERVER . '?sso_action=login&login_token=' . $login_token . '&user_id=' . get_current_user_id() . '&domain=' . home_url() .'&redirect_to=' .home_url(). $_SERVER['REQUEST_URI']);
                 die();
@@ -261,7 +261,9 @@ class SsoRestAuthClient
             if ($token === $_POST['login_token']) {
                 delete_user_meta($_POST['user_id'], 'rw_sso_login_token');
             }
+            echo get_user_meta($_POST['user_id'], 'rw_sso_login_token', true);
         }
+
     }
 
     /**
@@ -272,54 +274,65 @@ class SsoRestAuthClient
     public function login_through_token()
     {
 
-        if (is_user_logged_in() || isset($_SESSION['sso_remote_user'])) {
-            return;
-        }
-	    if (isset($_GET['rw_sso_login_token'])) {
-            $login_token = $_GET['rw_sso_login_token'];
-            if(empty($login_token)){
-	            $_SESSION['sso_remote_user'] = 'unknown';
-                return;
-            }
-            $url = KONTO_SERVER . '/wp-json/sso/v1/check_login_token';
-            $response = wp_remote_post($url, array(
-                'method' => 'POST',
-                'body' => array(
-                    'login_token' => $login_token,
-                )));
-            $response = json_decode(wp_remote_retrieve_body($response));
-            if (!is_wp_error($response)) {
-                if (isset($response->success)) {
-                    if ($response->success) {
-                        $user = get_user_by('login', $response->user_login);
 
-                        if (!$user && in_array($response->user_login, get_super_admins())) {
-                            switch_to_blog(1);
+	    //unset($_SESSION['sso_remote_user']);
+	    if (false && !is_user_logged_in() && !isset($_SESSION['sso_remote_user'])) {
+
+
+            if (isset($_GET['rw_sso_login_token']) && isset($_GET['sso_action']) && $_GET['sso_action']=='login_through_token') {
+
+                $login_token = $_GET['rw_sso_login_token'];
+                if(empty($login_token)){
+                    var_dump(site_url());
+                    die();
+                    $_SESSION['sso_remote_user'] = 'unknown';
+                    setcookie('sso_remote_user',  'unknown');
+                    wp_safe_redirect(site_url()); //.$_SERVER['PATH_INFO']);
+                    die();
+                }
+                $url = KONTO_SERVER . '/wp-json/sso/v1/check_login_token';
+                $response = wp_remote_post($url, array(
+                    'method' => 'POST',
+                    'body' => array(
+                        'login_token' => $login_token,
+                    )));
+                $response = json_decode(wp_remote_retrieve_body($response));
+                if (!is_wp_error($response)) {
+                    if (isset($response->success)) {
+                        if ($response->success) {
                             $user = get_user_by('login', $response->user_login);
-                            restore_current_blog();
+
+                            if (!$user && in_array($response->user_login, get_super_admins())) {
+                                switch_to_blog(1);
+                                $user = get_user_by('login', $response->user_login);
+                                restore_current_blog();
+                            }
+                            if ($user) {
+                                wp_set_current_user($user->ID);
+                                wp_set_auth_cookie($user->ID);
+                            } else {
+                                $_SESSION['sso_remote_user'] = 'unknown';
+                            }
+                            $redirect_to = home_url();
+                            wp_safe_redirect($redirect_to);
+                            exit();
                         }
-                        if ($user) {
-                            wp_set_current_user($user->ID);
-                            wp_set_auth_cookie($user->ID);
-                        } else {
-                            $_SESSION['sso_remote_user'] = 'unknown';
-                        }
-                        $redirect_to = home_url();
-                        wp_safe_redirect($redirect_to);
-                        exit();
                     }
                 }
+                die();
+            } else {
+                //var_dump(KONTO_SERVER . '?sso_action=check_token&redirect_to='.site_url().$_SERVER['REQUEST_URI']);
+                //die();
+
+                if(!isset($_COOKIE['sso_remote_user'])){
+	                wp_redirect(KONTO_SERVER . '?sso_action=check_token&redirect_to='.site_url().$_SERVER['PATH_INFO'] );
+	                die();
+
+                }
+
+
             }
-            die();
-        } else {
-            //var_dump(KONTO_SERVER . '?sso_action=check_token&redirect_to='.site_url().$_SERVER['REQUEST_URI']);
-
-            //wp_redirect(KONTO_SERVER . '?sso_action=check_token&redirect_to='.site_url().$_SERVER['PATH_INFO'] );
-            //die();
-
-
-        }
-
+	    }
     }
 
     /**
@@ -348,7 +361,9 @@ class SsoRestAuthClient
                     $response = json_decode(wp_remote_retrieve_body($response));
                     if (isset($response->success)) {
                         if ($response->success) {
-                            if ($user = get_user_by('login', $username)) {
+
+
+	                        if ($user = get_user_by('login', $username)) {
                                 update_user_meta($user->ID, 'rw_sso_login_token', $response->profile->login_token);
                                $_SESSION['rw_sso_login_token'] = $response->profile->login_token;
                                 if (is_multisite() && !is_user_member_of_blog($user->ID, get_current_blog_id())) {
@@ -376,7 +391,7 @@ class SsoRestAuthClient
                                 } else {
                                     update_user_meta($user_id, 'rw_sso_login_token', $response->profile->login_token);
                                     $_SESSION['rw_sso_login_token'] = $response->profile->login_token;
-                                    return get_user_by('id', $user_id);
+	                                return get_user_by('id', $user_id);
                                 }
                             }
 
