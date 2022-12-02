@@ -36,8 +36,9 @@ class SsoRestAuthClient
                 wp_die('Environmental Var KONTO_SERVER is not defined');
         }
         add_filter('authenticate', array($this, 'check_credentials'), 999, 3);
-        add_action('login_head', array($this, 'login_through_token'));
-        add_action('wp_head', array($this, 'login_through_token'));
+        add_action('init', array($this, 'login_through_token'));
+        //add_action('login_head', array($this, 'login_through_token'));
+        //add_action('wp_head', array($this, 'login_through_token'));
         add_action('wp_logout', array($this, 'remote_logout'),1);
         add_action('init', array($this, 'remote_login'));
         add_action('init', array($this, 'delete_token_on_login_success'));
@@ -274,8 +275,12 @@ class SsoRestAuthClient
         if (is_user_logged_in() || isset($_SESSION['sso_remote_user'])) {
             return;
         }
-        if (isset($_GET['rw_sso_login_token'])) {
+	    if (isset($_GET['rw_sso_login_token'])) {
             $login_token = $_GET['rw_sso_login_token'];
+            if(empty($login_token)){
+	            $_SESSION['sso_remote_user'] = 'unknown';
+                return;
+            }
             $url = KONTO_SERVER . '/wp-json/sso/v1/check_login_token';
             $response = wp_remote_post($url, array(
                 'method' => 'POST',
@@ -307,16 +312,10 @@ class SsoRestAuthClient
             }
             die();
         } else {
+            //var_dump(KONTO_SERVER . '?sso_action=check_token&redirect_to='.site_url().$_SERVER['REQUEST_URI']);
 
-            ?>
-            <script src="<?php echo KONTO_SERVER . '?sso_action=check_token' ?>">
-            </script>
-            <script>
-                if (rw_sso_login_token) {
-                    location.href = '?sso_action=login&rw_sso_login_token=' + rw_sso_login_token + '&redirect=' + encodeURI(location.href);
-                }
-            </script>
-            <?php
+            //wp_redirect(KONTO_SERVER . '?sso_action=check_token&redirect_to='.site_url().$_SERVER['PATH_INFO'] );
+            //die();
 
 
         }
@@ -674,4 +673,5 @@ class SsoRestAuthClient
 
 
 new SsoRestAuthClient();
+
 
