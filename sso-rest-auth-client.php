@@ -310,7 +310,7 @@ class SsoRestAuthClient
         } else {
 
             ?>
-            <script src="<?php echo KONTO_SERVER . '?action=check_token' ?>">
+            <script src="<?php echo KONTO_SERVER . '?sso_action=check_token' ?>">
             </script>
             <script>
                 if (rw_sso_login_token) {
