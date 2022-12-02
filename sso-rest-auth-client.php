@@ -218,7 +218,11 @@ class SsoRestAuthClient
     public function remote_logout()
     {
         unset($_SESSION['sso_remote_user']);
-        wp_redirect(KONTO_SERVER . '/wp-login.php?action=remote_logout&redirect_to=' . home_url());
+        wp_redirect(
+                KONTO_SERVER .
+                '/wp-login.php?action=remote_logout&login_token='.
+                get_user_meta(get_current_user_id(), 'rw_sso_login_token', true).
+                '&redirect_to=' . home_url());
         die();
     }
 
