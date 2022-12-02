@@ -241,7 +241,7 @@ class SsoRestAuthClient
             $login_token = get_user_meta(get_current_user_id(), 'rw_sso_login_token', true);
             if (!empty($login_token)) {
                 ?>
-                <script src="<?php echo KONTO_SERVER . '?login_token=' . $login_token . '&user_id=' . get_current_user_id() . '&domain=' . home_url() ?>">
+                <script src="<?php echo KONTO_SERVER . '?sso_action=login&login_token=' . $login_token . '&user_id=' . get_current_user_id() . '&domain=' . home_url() ?>">
                 </script>
                 <?php
             }
@@ -314,7 +314,7 @@ class SsoRestAuthClient
             </script>
             <script>
                 if (rw_sso_login_token) {
-                    location.href = '?rw_sso_login_token=' + rw_sso_login_token + '&redirect=' + encodeURI(location.href);
+                    location.href = '?sso_action=login&rw_sso_login_token=' + rw_sso_login_token + '&redirect=' + encodeURI(location.href);
                 }
             </script>
             <?php
