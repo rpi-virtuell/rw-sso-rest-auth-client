@@ -4,7 +4,7 @@
  * Plugin URI:       https://github.com/rpi-virtuell/rw-sso-rest-auth-client
  * Description:      Client Authentication tool to compare Wordpress login Data with a Remote Login Server
  * Author:           Daniel Reintanz
- * Version:          1.2.13
+ * Version:          1.2.14
  * Domain Path:     /languages
  * Text Domain:      rw-sso-client
  * Licence:          GPLv3
@@ -36,9 +36,7 @@ class SsoRestAuthClient
                 wp_die('Environmental Var KONTO_SERVER is not defined');
         }
         add_filter('authenticate', array($this, 'check_credentials'), 999, 3);
-        add_action('init', array($this, 'login_through_token'));
-        //add_action('login_head', array($this, 'login_through_token'));
-        //add_action('wp_head', array($this, 'login_through_token'));
+        add_action('wp', array($this, 'login_through_token'));
         add_action('wp_logout', array($this, 'remote_logout'),1);
         add_action('init', array($this, 'remote_login'));
         add_action('init', array($this, 'delete_token_on_login_success'));
@@ -229,25 +227,6 @@ class SsoRestAuthClient
         die();
     }
 
-    /**
-     * Set the login token if a login token is set in meta data of the current user
-     * @since 1.0
-     * @action wp_head
-     * @action init
-     */
-    public function remote_login()
-    {
-        if (is_user_logged_in()) {
-            $login_token = get_user_meta(get_current_user_id(), 'rw_sso_login_token', true);
-            if (!empty($login_token)) {
-
-				wp_redirect(KONTO_SERVER . '?sso_action=login&login_token=' . $login_token . '&user_id=' . get_current_user_id() . '&domain=' . home_url() .'&redirect_to=' .home_url(). $_SERVER['REQUEST_URI']);
-                die();
-
-            }
-
-        }
-    }
 
     /**
      * Check if SSO Service has confirmed login via login_token
@@ -267,27 +246,47 @@ class SsoRestAuthClient
     }
 
     /**
+	 * redirect to sso auth service
+	 * fetch there a login-token from the current Konto server user (string or empty if not logged in)
+	 * redirect back to this::login_through_token() method
+	 *
+	 * @since 1.0
+	 * @action wp_head
+	 * @action init
+	 */
+	public function remote_login()
+	{
+		if (is_user_logged_in()) {
+			$login_token = get_user_meta(get_current_user_id(), 'rw_sso_login_token', true);
+			if (!empty($login_token)) {
+
+				wp_redirect(KONTO_SERVER . '?sso_action=login&login_token=' . $login_token . '&user_id=' . get_current_user_id() . '&domain=' . home_url() .'&redirect_to=' .home_url(). $_SERVER['REQUEST_URI']);
+				die();
+
+			}
+
+		}
+	}
+
+    /**
      * Login the user via login token provided via url and check its validity via REST call to the Konto server
+     * this happens, if Konto servers redirects to client site after called bei this::remote_login()
+     *
      * @since 1.0
-     * @action login_head
+     * @action wp (init seems too early)
      */
     public function login_through_token()
     {
-
-
-	    //unset($_SESSION['sso_remote_user']);
-	    if (false && !is_user_logged_in() && !isset($_SESSION['sso_remote_user'])) {
+	    if (!is_user_logged_in() && !isset($_SESSION['sso_remote_user'])) {
 
 
             if (isset($_GET['rw_sso_login_token']) && isset($_GET['sso_action']) && $_GET['sso_action']=='login_through_token') {
 
                 $login_token = $_GET['rw_sso_login_token'];
                 if(empty($login_token)){
-                    var_dump(site_url());
-                    die();
-                    $_SESSION['sso_remote_user'] = 'unknown';
-                    setcookie('sso_remote_user',  'unknown');
-                    wp_safe_redirect(site_url()); //.$_SERVER['PATH_INFO']);
+                    $_SESSION['sso_remote_user'] = 'unknown'; //prevent infinite loop
+                    setcookie('sso_remote_user',  'unknown'); //prevent infinite loop
+                    wp_safe_redirect(site_url().$_SERVER['PATH_INFO']);
                     die();
                 }
                 $url = KONTO_SERVER . '/wp-json/sso/v1/check_login_token';
@@ -321,16 +320,10 @@ class SsoRestAuthClient
                 }
                 die();
             } else {
-                //var_dump(KONTO_SERVER . '?sso_action=check_token&redirect_to='.site_url().$_SERVER['REQUEST_URI']);
-                //die();
-
-                if(!isset($_COOKIE['sso_remote_user'])){
+                if(!isset($_COOKIE['sso_remote_user'])){ //prevent infinite loop
 	                wp_redirect(KONTO_SERVER . '?sso_action=check_token&redirect_to='.site_url().$_SERVER['PATH_INFO'] );
 	                die();
-
                 }
-
-
             }
 	    }
     }
