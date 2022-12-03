@@ -4,7 +4,7 @@
  * Plugin URI:       https://github.com/rpi-virtuell/rw-sso-rest-auth-client
  * Description:      Client Authentication tool to compare Wordpress login Data with a Remote Login Server
  * Author:           Daniel Reintanz
- * Version:          1.2.15
+ * Version:          1.2.16
  * Domain Path:     /languages
  * Text Domain:      rw-sso-client
  * Licence:          GPLv3
@@ -31,7 +31,7 @@ class SsoRestAuthClient
          * $_SESSION['rw_sso_login_token'] is the konto server login-token and should be deleted after logout
          * $_SESSION['rw_sso_remote_user'] is set when the account server is asked whether the current user is logged in
 	     */
-        session_start();
+	    if(session_status() !== PHP_SESSION_ACTIVE) session_start();
 
         if (!defined('KONTO_SERVER')) {
             if (getenv('KONTO_SERVER'))
@@ -42,7 +42,8 @@ class SsoRestAuthClient
                 wp_die('Environmental Var KONTO_SERVER is not defined');
         }
         add_filter('authenticate', array($this, 'check_credentials'), 999, 3);
-        add_action('wp', array($this, 'login_through_token'));
+        add_action('init', array($this, 'login_through_token'));
+        add_action('wp', array($this, 'redrive_remote_token'));
         add_action('wp_logout', array($this, 'remote_logout'),1);
         add_action('init', array($this, 'remote_login'));
         add_action('init', array($this, 'delete_token_on_login_success'));
@@ -290,7 +291,8 @@ class SsoRestAuthClient
      */
     public function login_through_token()
     {
-	    if (!is_user_logged_in() && !isset($_SESSION['sso_remote_user']) ) {
+
+        if (!is_user_logged_in() && !isset($_SESSION['sso_remote_user']) ) {
 
 
             if (isset($_GET['rw_sso_login_token']) && isset($_GET['sso_action']) && $_GET['sso_action']=='login_through_token') {
@@ -332,20 +334,33 @@ class SsoRestAuthClient
                     }
                 }
                 die();
-            } else {
-	            if( !isset($_SESSION['sso_remote_user']) ){ //prevent infinite loop
-		            /**
-		             * fetch there a login-token from the current Konto server user (string or empty if not logged in)
-		             * redirect back to this::login_through_token() method
-		             */
-		            $_SESSION['sso_remote_user'] = 'check'; //prevent infinite redirection loop
-		            wp_redirect(KONTO_SERVER . '?sso_action=check_token&redirect_to='.site_url().$_SERVER['PATH_INFO'] );
-	                die();
-                }
             }
 	    }elseif (is_user_logged_in()){
             unset($_SESSION['sso_remote_user']);
-	    }
+
+        }else{
+	        if (isset($_GET['rw_sso_login_token']) && isset($_GET['sso_action'])){
+                wp_safe_redirect(site_url().$_SERVER['PATH_INFO']);
+                die();
+
+	        }
+        }
+
+    }
+
+	/**
+	 * fetch there a login-token from the current Konto server user (string or empty if not logged in)
+	 * redirect back to this::login_through_token() method
+     * action wp;
+	 */
+    public function redrive_remote_token(){
+	        if(!is_user_logged_in() && !isset($_SESSION['sso_remote_user']) ){
+		        $_SESSION['sso_remote_user'] = 'check'; //prevent infinite redirection loop
+		        wp_redirect(KONTO_SERVER . '?sso_action=check_token&redirect_to='.site_url().$_SERVER['PATH_INFO'] );
+		        die();
+	        }
+
+
     }
 
     /**
