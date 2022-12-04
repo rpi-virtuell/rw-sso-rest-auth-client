@@ -284,6 +284,7 @@ class SsoRestAuthClient
                 if(!empty($token)){
                     $this->log('remote_login_redirect','token:'. $_SESSION['rw_sso_login_token']);
 	                echo "<script>top.location.href='$url'</script>";
+                    //wp_redirect($url);
 	                die();
                 }
 
@@ -423,8 +424,15 @@ class SsoRestAuthClient
      * actions: wp, login_init;
      */
     public function redrive_remote_token(){
-	    if(!is_user_logged_in()){
+	    if(!is_user_logged_in() ){
 		    if(is_front_page() || is_home() || is_login()){
+
+                ///bot|spider|crawl|scanner/i
+                $agent = $_SERVER['HTTP_USER_AGENT'];
+                if(preg_match("/bot|spider|crawl|scanner|wordpress|wp|appletv|dalvik|roku|crkey|kindle|slurp|search|nintendo|xbox/i",$agent)){
+                    return;
+                }
+
 			    if(session_status() !== PHP_SESSION_ACTIVE) session_start();
 
 			    $redir_url = KONTO_SERVER . '?sso_action=check_token&redirect_to='.site_url().$_SERVER['PATH_INFO'];
