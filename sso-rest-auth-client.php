@@ -4,7 +4,7 @@
  * Plugin URI:       https://github.com/rpi-virtuell/rw-sso-rest-auth-client
  * Description:      Client Authentication tool to compare Wordpress login Data with a Remote Login Server
  * Author:           Daniel Reintanz
- * Version:          1.2.16
+ * Version:          1.2.17
  * Domain Path:     /languages
  * Text Domain:      rw-sso-client
  * Licence:          GPLv3
@@ -12,9 +12,16 @@
  * GitHub Branch:     master
  */
 
+define('RW_SSO_DEBUG_LOG', false);
+
 class SsoRestAuthClient
 {
 
+	/**
+	 * @since   1.2.17
+	 * @var int  how many times should client try to login user at kontoserver after sucessfull autentification
+	 */
+    protected $max_login_attemps = 2;
 
     /**
      * Plugin constructor.
@@ -44,8 +51,9 @@ class SsoRestAuthClient
         add_filter('authenticate', array($this, 'check_credentials'), 999, 3);
         add_action('init', array($this, 'login_through_token'));
         add_action('wp', array($this, 'redrive_remote_token'));
+        add_action('login_init', array($this, 'redrive_remote_token'));
         add_action('wp_logout', array($this, 'remote_logout'),1);
-        add_action('init', array($this, 'remote_login'));
+        add_action('set_current_user', array($this, 'remote_login'));
         add_action('init', array($this, 'delete_token_on_login_success'));
         add_action('admin_menu', array($this, 'add_invite_user_user_page'), 999);
         add_action('user_new_form_tag', array($this, 'redir_new_user'), 999);
@@ -224,19 +232,65 @@ class SsoRestAuthClient
 	 *
 	 * @since 1.0
 	 * @action wp_head
-	 * @action init
+	 * @action set_current_user
 	 */
 	public function remote_login()
 	{
-		if (is_user_logged_in()) {
-			$login_token = get_user_meta(get_current_user_id(), 'rw_sso_login_token', true);
-			if (!empty($login_token)) {
+		if (is_user_logged_in() && !wp_doing_ajax()) {
 
-				wp_redirect(KONTO_SERVER . '?sso_action=login&login_token=' . $login_token . '&user_id=' . get_current_user_id() . '&domain=' . home_url() .'&redirect_to=' .home_url(). $_SERVER['REQUEST_URI']);
-				die();
+            if(session_status() !== PHP_SESSION_ACTIVE) session_start();
+            //$login_token = get_user_meta(get_current_user_id(), 'rw_sso_login_token', true);
+            //if (!empty($login_token) && !isset($_SESSION['rw_sso_login_token'])) {
+            //var_dump($_SESSION['rw_sso_login_token'],$_SESSION['rw_sso_remote_login_attemps']);
 
-			}
 
+
+            if(!isset($_SESSION['rw_sso_remote_login_attemps'])){
+	            $_SESSION['rw_sso_remote_login_attemps'] = 0 ;
+
+            }
+			if($_SESSION['rw_sso_remote_login_attemps'] < $this->max_login_attemps && isset( $_SESSION['rw_sso_login_token']) ){
+
+
+
+				if($_SESSION['rw_sso_remote_login_attemps'] === 0 ){
+                    /**
+                     * after successful remote login, we need to tell the client not to make any further login attempts.
+                     * The account server has no access to the browser bound $__SESSION.
+                     * Therefore we write the login token in the user meta,
+                     * which we can also access from the account server via wp_remote.
+                     * @see delete_token_on_login_success()
+                     */
+					update_user_meta(get_current_user_id(), 'rw_sso_login_token', $_SESSION['rw_sso_login_token']);
+					$this->log('remote_login_prepare','update_user_meta:'. $_SESSION['rw_sso_login_token']);
+
+				}
+
+				$_SESSION['rw_sso_remote_login_attemps'] ++;
+
+				$this->log('remote_login','dry:'. $_SESSION['rw_sso_remote_login_attemps']);
+
+                $url = KONTO_SERVER . '?sso_action=login&login_token=' .  $_SESSION['rw_sso_login_token'] .
+                       '&user_id=' . get_current_user_id() . '&domain=' . urlencode(home_url()) .
+                       '&redirect_to=' .urlencode(site_url(). $_SERVER['PATH_INFO']);
+
+
+
+                $token = get_user_meta(get_current_user_id(), 'rw_sso_login_token', true);
+                /**
+                 * nach erfolgreichem remote login wird der token aus den user meta gelöscht
+                 * @see delete_token_on_login_success()
+                 */
+                if(!empty($token)){
+                    $this->log('remote_login_redirect','token:'. $_SESSION['rw_sso_login_token']);
+	                echo "<script>top.location.href='$url'</script>";
+	                die();
+                }
+
+            }
+
+		}else{
+			$_SESSION['rw_sso_remote_login_attemps']=0;
 		}
 	}
 
@@ -250,11 +304,15 @@ class SsoRestAuthClient
     {
         $token = $_SESSION['rw_sso_login_token'];
         unset($_SESSION['rw_sso_login_token']);
+        unset($_SESSION['rw_sso_remote_login_attemps']);
+        unset($_SESSION['sso_remote_user_check']);
+
+        $this->log('remote_logout','SESSION:'.json_encode($_SESSION));
 
         wp_redirect(
                 KONTO_SERVER . '/wp-login.php'.
                 '?sso_action=remote_logout&login_token='. $token .
-                '&redirect_to=' . home_url());
+                '&redirect_to=' . urlencode(home_url()));
         die();
     }
 
@@ -268,10 +326,12 @@ class SsoRestAuthClient
     {
         if ($_POST['action'] === 'sso_delete_token' && isset($_POST['user_id'])) {
             $token = get_user_meta($_POST['user_id'], 'rw_sso_login_token', true);
+
             if ($token === $_POST['login_token']) {
                 delete_user_meta($_POST['user_id'], 'rw_sso_login_token');
+	            $this->log('delete_token_on_login_success','token:'.$token,'user_id:'.$_POST['user_id'],'',$_POST['user_id']);
             }
-            echo get_user_meta($_POST['user_id'], 'rw_sso_login_token', true);
+
         }
 
     }
@@ -291,14 +351,17 @@ class SsoRestAuthClient
      */
     public function login_through_token()
     {
+	    if(session_status() !== PHP_SESSION_ACTIVE) session_start();
 
-        if (!is_user_logged_in() && !isset($_SESSION['sso_remote_user']) ) {
-
+	    if (!is_user_logged_in() && !isset($_SESSION['sso_remote_user']) ) {
 
             if (isset($_GET['rw_sso_login_token']) && isset($_GET['sso_action']) && $_GET['sso_action']=='login_through_token') {
 
-                $login_token = $_GET['rw_sso_login_token'];
-                if(empty($login_token)){
+
+	            $login_token = $_GET['rw_sso_login_token'];
+
+	            $this->log('login_through_token','got_token:'.$login_token);
+	            if(empty($login_token)){
                     $_SESSION['sso_remote_user'] = 'unknown'; //prevent infinite loop
                     wp_safe_redirect(site_url().$_SERVER['PATH_INFO']);
                     die();
@@ -323,7 +386,10 @@ class SsoRestAuthClient
                             if ($user) {
                                 wp_set_current_user($user->ID);
                                 wp_set_auth_cookie($user->ID);
+                                // set Session rw_sso_login_token  for remote logout
 	                            $_SESSION['rw_sso_login_token'] = $login_token;
+	                            $_SESSION['rw_sso_remote_login_attemps'] = $this->max_login_attemps;
+	                            $this->log('login_through_token','success|token:'.$_SESSION['rw_sso_login_token']);
                             } else {
                                 $_SESSION['sso_remote_user'] = 'unknown';
                             }
@@ -344,22 +410,33 @@ class SsoRestAuthClient
                 die();
 
 	        }
+
         }
 
     }
 
 	/**
-	 * fetch there a login-token from the current Konto server user (string or empty if not logged in)
-	 * redirect back to this::login_through_token() method
-     * action wp;
-	 */
+     * redirects to Konto server one time
+	 * fetch a login-token from the current Konto server user (string or empty if not logged in)
+     * konto Server redirects back to client with param rw_sso_login_token
+     * @see login_through_token() method
+     * actions: wp, login_init;
+     */
     public function redrive_remote_token(){
-	        if(!is_user_logged_in() && !isset($_SESSION['sso_remote_user']) ){
-		        $_SESSION['sso_remote_user'] = 'check'; //prevent infinite redirection loop
-		        wp_redirect(KONTO_SERVER . '?sso_action=check_token&redirect_to='.site_url().$_SERVER['PATH_INFO'] );
-		        die();
-	        }
+	    if(!is_user_logged_in()){
+		    if(is_front_page() || is_home() || is_login()){
+			    if(session_status() !== PHP_SESSION_ACTIVE) session_start();
 
+			    $redir_url = KONTO_SERVER . '?sso_action=check_token&redirect_to='.site_url().$_SERVER['PATH_INFO'];
+			    if(!isset($_SESSION['sso_remote_user_check']) ){
+				    $_SESSION['sso_remote_user_check'] = 'check'; //prevent infinite redirection loop
+				    $this->log('redrive_remote_token','sso_remote_user_check:'.$_SESSION['sso_remote_user_check']);
+				    wp_redirect($redir_url );
+				    die();
+			    }
+
+		    }
+	    }
 
     }
 
@@ -390,16 +467,17 @@ class SsoRestAuthClient
                     if (isset($response->success)) {
                         if ($response->success) {
 
-
-	                        if ($user = get_user_by('login', $username)) {
-                                update_user_meta($user->ID, 'rw_sso_login_token', $response->profile->login_token);
+                            if(session_status() !== PHP_SESSION_ACTIVE) session_start();
+	                        $this->log('check_credentials','token:'.$response->profile->login_token ,'username:'.$username);
+                            if ($user = get_user_by('login', $username)) {
+                                //update_user_meta($user->ID, 'rw_sso_login_token', $response->profile->login_token);
                                 $_SESSION['rw_sso_login_token'] = $response->profile->login_token;
                                 if (is_multisite() && !is_user_member_of_blog($user->ID, get_current_blog_id())) {
                                     add_user_to_blog(get_current_blog_id(), $user->ID, get_option('default_role'));
                                 }
                                 return $user;
                             } elseif ($user = get_user_by('email', $username)) {
-                                update_user_meta($user->ID, 'rw_sso_login_token', $response->profile->login_token);
+                                //update_user_meta($user->ID, 'rw_sso_login_token', $response->profile->login_token);
                                 $_SESSION['rw_sso_login_token'] = $response->profile->login_token;
                                 if (is_multisite() && !is_user_member_of_blog($user->ID, get_current_blog_id())) {
                                     add_user_to_blog(get_current_blog_id(), $user->ID, get_option('default_role'));
@@ -417,7 +495,7 @@ class SsoRestAuthClient
                                 if (is_wp_error($user_id)) {
                                     return $user_id;
                                 } else {
-                                    update_user_meta($user_id, 'rw_sso_login_token', $response->profile->login_token);
+                                    //update_user_meta($user_id, 'rw_sso_login_token', $response->profile->login_token);
                                     $_SESSION['rw_sso_login_token'] = $response->profile->login_token;
 	                                return get_user_by('id', $user_id);
                                 }
@@ -432,6 +510,7 @@ class SsoRestAuthClient
                     }
                 } else {
                     if (is_a($user, 'WP_User')) {
+                        $this->log('check_credentials-lokal-login');
                         return $user;
                     }
                     return new WP_Error('NoResponse', __('No Response from Remote Login Server! Please inform the Administrator!', 'rw-sso-client'));
@@ -440,7 +519,7 @@ class SsoRestAuthClient
                 return $attempts;
             }
         } else {
-            return $user;
+	        return $user;
         }
     }
 
@@ -712,6 +791,46 @@ class SsoRestAuthClient
         $return .= '</select> ';
         return $return;
     }
+
+	/**
+     * @since v1.2.17
+     *
+     * prints helpfull log entries in /tmp/sso.log if RW_SSO_DEBUG_LOG == true
+     * use:   tail -f /tmp/sso.log
+     *
+	 * @param $cmd
+	 * @param $param1
+	 * @param $param2
+	 * @param $param3
+	 * @param $user_id
+	 *
+	 * @return void
+	 */
+	public function log($cmd, $param1='', $param2='', $param3='', $user_id = 0){
+
+        if(RW_SSO_DEBUG_LOG === true){
+
+	        if(get_current_user_id()>0){
+		        $user = wp_get_current_user()->user_login;
+	        }elseif($user_id>0){
+		        $user = get_userdata($user_id)->user_login;
+	        }else{
+		        $user = 'anon';
+	        }
+
+	        $str = "\n".$cmd;
+	        $str .= empty($param1)?'':'|'.$param1;
+	        $str .= empty($param2)?'':'|'.$param2;
+	        $str .= empty($param3)?'':'|'.$param3;
+
+	        $str .= "\n.....".home_url().'|sessId:'.session_id().'|'.$user;
+
+	        $str .= "\n";
+	        file_put_contents('/tmp/sso.log',$str, FILE_APPEND);
+        }
+
+
+	}
 }
 
 
