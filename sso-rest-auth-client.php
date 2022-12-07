@@ -420,7 +420,7 @@ class SsoRestAuthClient
      * actions: wp, login_init;
      */
     public function redrive_remote_token(){
-	    if(!is_user_logged_in() ){
+	    if(!is_user_logged_in() && isset($_COOKIE['PHPSESSID']) && strLen( $_COOKIE['PHPSESSID']) >30 ){
 		    if(is_front_page() || is_home() || is_login()){
 
                 ///bot|spider|crawl|scanner/i
