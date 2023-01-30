@@ -90,7 +90,7 @@ class SsoRestAuthClient
                     'id'    => $maintenance_button_id,
                     'parent' => null,
                     'group'  => null,
-                    'title' => '<span  class="dashicons dashicons-admin-tools"></span>',
+                    'title' => '<span class="dashicons-admin-tools ab-icon"></span>',
                     'href'  => wp_nonce_url(home_url().'?maintenance=on'),
                     'meta' => [
                         'title' => 'Wartungsmodus inaktiv',
@@ -101,7 +101,7 @@ class SsoRestAuthClient
                     'id'    => 'rpi-disable-maintenance-mode',
                     'parent' => null,
                     'group'  => null,
-                    'title' => '<span class="dashicons dashicons-code-standards"></span>',
+                    'title' => '<span style="background-color: red;" class="dashicons-admin-tools ab-icon"></span>',
                     'href'  => wp_nonce_url(home_url().'?maintenance=off'),
                     'meta' => [
                         'title' => 'Wartungsmodus aktiv',
