@@ -4,7 +4,7 @@
  * Plugin URI:       https://github.com/rpi-virtuell/rw-sso-rest-auth-client
  * Description:      Client Authentication tool to compare Wordpress login Data with a Remote Login Server
  * Author:           Daniel Reintanz
- * Version:          1.2.18
+ * Version:          1.3.0
  * Domain Path:     /languages
  * Text Domain:      rw-sso-client
  * Licence:          GPLv3
@@ -48,6 +48,11 @@ class SsoRestAuthClient
                 // .htaccess Eintrag fehlt: SetEnv KONTO_SERVER "https://my-wordpress-website.com"
                 wp_die('Environmental Var KONTO_SERVER is not defined');
         }
+
+        add_action('admin_bar_menu', array($this,'add_admin_bar_menu_buttons'), 500);
+        add_action('init', array($this, 'toggle_rpi_maintenance_mode'));
+        add_action('wp_head', array($this, 'force_rpi_maintenance_mode'));
+
         add_filter('authenticate', array($this, 'check_credentials'), 999, 3);
         add_action('init', array($this, 'login_through_token'));
         add_action('wp', array($this, 'redrive_remote_token'));
@@ -72,6 +77,68 @@ class SsoRestAuthClient
         });
         add_action('wp_enqueue_scripts', array($this, 'add_sso_client_js'));
 
+    }
+
+    public function add_admin_bar_menu_buttons(WP_Admin_Bar  $admin_Bar){
+        $maintenance_button_id = 'rpi-enable-maintenance-mode';
+
+        if (current_user_can('manage_options'))
+        {
+            if (!file_exists(plugin_dir_path(__FILE__).'.rpi-maintenance'))
+            {
+                $admin_Bar->add_menu( array(
+                    'id'    => $maintenance_button_id,
+                    'parent' => null,
+                    'group'  => null,
+                    'title' => '<span  class="dashicons dashicons-admin-tools"></span>',
+                    'href'  => wp_nonce_url(home_url().'?maintenance=on'),
+                    'meta' => [
+                        'title' => 'Wartungsmodus inaktiv',
+                    ]
+                ) );
+            }else{
+                $admin_Bar->add_menu( array(
+                    'id'    => 'rpi-disable-maintenance-mode',
+                    'parent' => null,
+                    'group'  => null,
+                    'title' => '<span class="dashicons dashicons-code-standards"></span>',
+                    'href'  => wp_nonce_url(home_url().'?maintenance=off'),
+                    'meta' => [
+                        'title' => 'Wartungsmodus aktiv',
+                    ]
+                ) );
+            }
+        }
+
+        $admin_Bar->add_menu( array(
+            'id'    => 'menu-id',
+            'parent' => null,
+            'group'  => null,
+            'title' => 'Hilfe',
+            'href'  => 'https://hilfe.rpi-virtuell.de/',
+            'meta' => [
+                'title' =>'Zur Hilfeseite von rpi-virtuell',
+            ]
+        ) );
+
+    }
+
+    public function toggle_rpi_maintenance_mode(){
+        if (wp_verify_nonce($_GET['_wpnonce']) && current_user_can('manage_options') && $_GET['maintenance'] === 'on'){
+           if (!file_exists(plugin_dir_path(__FILE__).'.rpi-maintenance'))
+            file_put_contents(plugin_dir_path(__FILE__).'.rpi-maintenance','wartungsmodus');
+        }
+        if (wp_verify_nonce($_GET['_wpnonce']) && current_user_can('manage_options') && $_GET['maintenance'] === 'off'){
+if (file_exists(plugin_dir_path(__FILE__).'.rpi-maintenance'))
+{
+    unlink(plugin_dir_path(__FILE__).'.rpi-maintenance');
+}
+        }
+    }
+    public function force_rpi_maintenance_mode(){
+        if (file_exists(plugin_dir_path(__FILE__).'.rpi-maintenance') && !current_user_can('manage_options')){
+            wp_die(include_once plugin_dir_path(__FILE__). 'templates/sso_maintenance.php');
+        }
     }
 
     public function add_sso_client_js()
