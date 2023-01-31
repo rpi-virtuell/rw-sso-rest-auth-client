@@ -101,7 +101,7 @@ class SsoRestAuthClient
                     'id'    => 'rpi-disable-maintenance-mode',
                     'parent' => null,
                     'group'  => null,
-                    'title' => '<span style="background-color: red;" class="dashicons-admin-tools ab-icon"></span>',
+                    'title' => '<span style="background-color: red; padding: 5px; top: 0;" class="dashicons-admin-tools ab-icon"></span>',
                     'href'  => wp_nonce_url(home_url().'?maintenance=off'),
                     'meta' => [
                         'title' => 'Wartungsmodus aktiv',
@@ -137,7 +137,8 @@ if (file_exists(plugin_dir_path(__FILE__).'.rpi-maintenance'))
     }
     public function force_rpi_maintenance_mode(){
         if (file_exists(plugin_dir_path(__FILE__).'.rpi-maintenance') && !current_user_can('manage_options')){
-            wp_die(include_once plugin_dir_path(__FILE__). 'templates/sso_maintenance.php');
+            include_once plugin_dir_path(__FILE__). 'templates/sso_maintenance.php';
+            wp_die();
         }
     }
 
