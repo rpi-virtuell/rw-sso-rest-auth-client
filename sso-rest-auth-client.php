@@ -4,7 +4,7 @@
  * Plugin URI:       https://github.com/rpi-virtuell/rw-sso-rest-auth-client
  * Description:      Client Authentication tool to compare Wordpress login Data with a Remote Login Server
  * Author:           Daniel Reintanz
- * Version:          1.3.0
+ * Version:          1.3.1
  * Domain Path:     /languages
  * Text Domain:      rw-sso-client
  * Licence:          GPLv3
@@ -124,7 +124,13 @@ class SsoRestAuthClient
     }
 
     public function toggle_rpi_maintenance_mode(){
-        if (wp_verify_nonce($_GET['_wpnonce']) && current_user_can('manage_options') && $_GET['maintenance'] === 'on'){
+
+        if (is_multisite() && current_user_can('manage_network') && $_GET['maintenance'] === 'on')
+        {
+            if (!file_exists(plugin_dir_path(__FILE__).'.rpi-maintenance'))
+                file_put_contents(plugin_dir_path(__FILE__).'.rpi-maintenance','wartungsmodus');
+        }
+        elseif (wp_verify_nonce($_GET['_wpnonce']) && current_user_can('manage_options') && $_GET['maintenance'] === 'on'){
            if (!file_exists(plugin_dir_path(__FILE__).'.rpi-maintenance'))
             file_put_contents(plugin_dir_path(__FILE__).'.rpi-maintenance','wartungsmodus');
         }
