@@ -125,7 +125,7 @@ class SsoRestAuthClient
 
     public function toggle_rpi_maintenance_mode(){
 
-        if (is_multisite() && current_user_can('manage_network') && $_GET['maintenance'] === 'on')
+        if (is_multisite() && wp_verify_nonce($_GET['_wpnonce']) && current_user_can('manage_network') && $_GET['maintenance'] === 'on')
         {
             if (!file_exists(plugin_dir_path(__FILE__).'.rpi-maintenance'))
                 file_put_contents(plugin_dir_path(__FILE__).'.rpi-maintenance','wartungsmodus');
