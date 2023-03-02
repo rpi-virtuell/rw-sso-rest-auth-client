@@ -211,8 +211,21 @@ class SsoRestAuthClient
                 INDEX (`hash`)
                 ) $charset_collate;";
 
+        $wpdb->query($sql);
+
+
+        // create whitelist table to allow bulk logins from same IP
+
+        $table_name = $wpdb->base_prefix . 'failed_login_whitelist';
+
+        $sql = "CREATE TABLE IF NOT EXISTS $table_name (
+                `last_login`  bigint(20) NULL ,
+                `ip`  varchar(30) NULL DEFAULT '' ,
+                INDEX (`ip`)
+                ) $charset_collate;";
 
         $wpdb->query($sql);
+
     }
 
     /**
@@ -231,6 +244,13 @@ class SsoRestAuthClient
         $sql = "DROP TABLE IF EXISTS `$table_name`;";
 
         $wpdb->query($sql);
+
+        $table_name = $wpdb->base_prefix . 'failed_login_whitelist';
+        $sql = "DROP TABLE IF EXISTS `$table_name`;";
+
+        $wpdb->query($sql);
+
+
     }
 
     /**
@@ -531,6 +551,7 @@ class SsoRestAuthClient
                                 if (is_multisite() && !is_user_member_of_blog($user->ID, get_current_blog_id())) {
                                     add_user_to_blog(get_current_blog_id(), $user->ID, get_option('default_role'));
                                 }
+                                $this->add_ip_to_whitelist_table();
                                 return $user;
                             } elseif ($user = get_user_by('email', $username)) {
                                 //update_user_meta($user->ID, 'rw_sso_login_token', $response->profile->login_token);
@@ -538,6 +559,7 @@ class SsoRestAuthClient
                                 if (is_multisite() && !is_user_member_of_blog($user->ID, get_current_blog_id())) {
                                     add_user_to_blog(get_current_blog_id(), $user->ID, get_option('default_role'));
                                 }
+                                $this->add_ip_to_whitelist_table();
                                 return $user;
                             } else {
                                 $user_id = wp_insert_user(array(
@@ -553,6 +575,7 @@ class SsoRestAuthClient
                                 } else {
                                     //update_user_meta($user_id, 'rw_sso_login_token', $response->profile->login_token);
                                     $_SESSION['rw_sso_login_token'] = $response->profile->login_token;
+                                    $this->add_ip_to_whitelist_table();
                                     return get_user_by('id', $user_id);
                                 }
                             }
@@ -567,6 +590,7 @@ class SsoRestAuthClient
                 } else {
                     if (is_a($user, 'WP_User')) {
                         $this->log('check_credentials-lokal-login');
+                        $this->add_ip_to_whitelist_table();
                         return $user;
                     }
                     return new WP_Error('NoResponse', __('No Response from Remote Login Server! Please inform the Administrator!', 'rw-sso-client'));
@@ -596,6 +620,12 @@ class SsoRestAuthClient
 
         $wpdb->query($sql);
 
+        $table_name = $wpdb->base_prefix . 'failed_login_whitelist';
+
+        $sql = "DELETE FROM `$table_name` WHERE last_login < UNIX_TIMESTAMP()-(60*20);";
+
+        $wpdb->query($sql);
+
     }
 
     /**
@@ -619,10 +649,53 @@ class SsoRestAuthClient
 
             return new WP_Error('max_invalid_logins', sprintf(__("The maximum amount of login attempts has been reached please wait %d minutes", 'rw-sso-client'), $lastlogin));
         } elseif (5 < $wpdb->get_var("SELECT count(*) FROM {$wpdb->base_prefix}failed_login_log WHERE ip = '$ip' and last_login > UNIX_TIMESTAMP()-(60*20)")) {
-            return new WP_Error('max_invalid_logins', __("The maximum amount of login attempts has been reached!", 'rw-sso-client'));
+            if ($this->is_current_ip_whitelisted()) {
+                return true;
+            } else {
+                return new WP_Error('max_invalid_logins', __("The maximum amount of login attempts has been reached!", 'rw-sso-client'));
+            }
         } else {
             return true;
         }
+    }
+
+    public function is_current_ip_whitelisted()
+    {
+
+        $ip = $_SERVER['REMOTE_ADDR'];
+        global $wpdb;
+
+        $table = $wpdb->base_prefix . 'failed_login_whitelist';
+        $exists = $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE ip = '$ip';");
+
+        if ($exists > 0) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+
+    public function add_ip_to_whitelist_table()
+    {
+        $ip = $_SERVER['REMOTE_ADDR'];
+        global $wpdb;
+
+        if (!$this->is_current_ip_whitelisted()) {
+            $result = $wpdb->insert(
+                $wpdb->base_prefix . 'failed_login_whitelist',
+                array(
+                    'ip' => $ip,
+                    'last_login' => time(),
+                ),
+                array(
+                    '%s',
+                    '%d',
+                )
+            );
+
+        }
+
     }
 
     /**
