@@ -4,7 +4,7 @@
  * Plugin URI:       https://github.com/rpi-virtuell/rw-sso-rest-auth-client
  * Description:      Client Authentication tool to compare Wordpress login Data with a Remote Login Server
  * Author:           Daniel Reintanz
- * Version:          1.3.2
+ * Version:          1.3.3
  * Domain Path:     /languages
  * Text Domain:      rw-sso-client
  * Licence:          GPLv3
@@ -12,7 +12,7 @@
  * GitHub Branch:     master
  */
 
-define('RW_SSO_DEBUG_LOG', false);
+const RW_SSO_DEBUG_LOG = false;
 
 class SsoRestAuthClient
 {
@@ -43,7 +43,7 @@ class SsoRestAuthClient
         if (!defined('KONTO_SERVER')) {
             if (getenv('KONTO_SERVER'))
                 // env var is set in apache2.conf
-                define('KONTO_SERVER', getenv('KONTO_SERVER'));
+                define('KONTO_SERVER', getenv('KONTO_SERVER'), false);
             else
                 // .htaccess Eintrag fehlt: SetEnv KONTO_SERVER "https://my-wordpress-website.com"
                 wp_die('Environmental Var KONTO_SERVER is not defined');
@@ -125,22 +125,24 @@ class SsoRestAuthClient
     public function toggle_rpi_maintenance_mode()
     {
 
-        if (is_multisite() && wp_verify_nonce($_GET['_wpnonce']) && current_user_can('manage_network') && $_GET['maintenance'] === 'on') {
-            if (!file_exists(plugin_dir_path(__FILE__) . '.rpi-maintenance'))
-                file_put_contents(plugin_dir_path(__FILE__) . '.rpi-maintenance', 'wartungsmodus');
-        } elseif (wp_verify_nonce($_GET['_wpnonce']) && current_user_can('manage_options') && $_GET['maintenance'] === 'on') {
-            if (!file_exists(plugin_dir_path(__FILE__) . '.rpi-maintenance'))
-                file_put_contents(plugin_dir_path(__FILE__) . '.rpi-maintenance', 'wartungsmodus');
-        }
-
-
-        if (is_multisite() && wp_verify_nonce($_GET['_wpnonce']) && current_user_can('manage_network') && $_GET['maintenance'] === 'off') {
-            if (file_exists(plugin_dir_path(__FILE__) . '.rpi-maintenance')) {
-                unlink(plugin_dir_path(__FILE__) . '.rpi-maintenance');
+        if (isset($_GET['_wpnonce'], $_GET['maintenance'])) {
+            if (is_multisite() && wp_verify_nonce($_GET['_wpnonce']) && current_user_can('manage_network') && $_GET['maintenance'] === 'on') {
+                if (!file_exists(plugin_dir_path(__FILE__) . '.rpi-maintenance'))
+                    file_put_contents(plugin_dir_path(__FILE__) . '.rpi-maintenance', 'wartungsmodus');
+            } elseif (wp_verify_nonce($_GET['_wpnonce']) && current_user_can('manage_options') && $_GET['maintenance'] === 'on') {
+                if (!file_exists(plugin_dir_path(__FILE__) . '.rpi-maintenance'))
+                    file_put_contents(plugin_dir_path(__FILE__) . '.rpi-maintenance', 'wartungsmodus');
             }
-        } elseif (wp_verify_nonce($_GET['_wpnonce']) && current_user_can('manage_options') && $_GET['maintenance'] === 'off') {
-            if (file_exists(plugin_dir_path(__FILE__) . '.rpi-maintenance')) {
-                unlink(plugin_dir_path(__FILE__) . '.rpi-maintenance');
+
+
+            if (is_multisite() && wp_verify_nonce($_GET['_wpnonce']) && current_user_can('manage_network') && $_GET['maintenance'] === 'off') {
+                if (file_exists(plugin_dir_path(__FILE__) . '.rpi-maintenance')) {
+                    unlink(plugin_dir_path(__FILE__) . '.rpi-maintenance');
+                }
+            } elseif (wp_verify_nonce($_GET['_wpnonce']) && current_user_can('manage_options') && $_GET['maintenance'] === 'off') {
+                if (file_exists(plugin_dir_path(__FILE__) . '.rpi-maintenance')) {
+                    unlink(plugin_dir_path(__FILE__) . '.rpi-maintenance');
+                }
             }
         }
     }
@@ -336,7 +338,7 @@ class SsoRestAuthClient
     function log($cmd, $param1 = '', $param2 = '', $param3 = '', $user_id = 0)
     {
 
-        if (RW_SSO_DEBUG_LOG === true) {
+        if (RW_SSO_DEBUG_LOG) {
 
             if (get_current_user_id() > 0) {
                 $user = wp_get_current_user()->user_login;
@@ -390,7 +392,7 @@ class SsoRestAuthClient
     public
     function delete_token_on_login_success()
     {
-        if ($_POST['action'] === 'sso_delete_token' && isset($_POST['user_id'])) {
+        if (isset($_POST['action']) && $_POST['action'] === 'sso_delete_token' && isset($_POST['user_id'])) {
             $token = get_user_meta($_POST['user_id'], 'rw_sso_login_token', true);
 
             if ($token === $_POST['login_token']) {
@@ -682,7 +684,7 @@ class SsoRestAuthClient
         global $wpdb;
 
         if (!$this->is_current_ip_whitelisted()) {
-            $result = $wpdb->insert(
+            $wpdb->insert(
                 $wpdb->base_prefix . 'failed_login_whitelist',
                 array(
                     'ip' => $ip,
@@ -878,6 +880,7 @@ class SsoRestAuthClient
         <div class="wrap">
             <h1>Nutzer hinzufügen</h1>
 
+            <label for="suche"></label>
             <input id="suche" placeholder="Nutzername oder Email">
             <button id="search-button" type="button">Suchen</button>
             <p class="results-info">Gewünschten Nutzer auswählen</p>
@@ -918,13 +921,13 @@ class SsoRestAuthClient
 
                         //Ajax anfrage hat geklappt
                         success: function (data, textStatus, XMLHttpRequest) { //erfolgreiche anfrage
-                            if ($('#results') && data.success == true) {
-
-                                $('#results').html(''); //Ausgabe in das div#results schreiben:
+                            let results = $('#results');
+                            if (results && data.success === true) {
+                                results.html(''); //Ausgabe in das div#results schreiben:
                                 $('.results-info').show();
 
                                 for (const result of data.results) {
-                                    $('#results').append(result);
+                                    results.append(result);
 
                                 }
                             }
@@ -958,12 +961,13 @@ class SsoRestAuthClient
 
                         //Ajax anfrage hat geklappt
                         success: function (data, textStatus, XMLHttpRequest) { //erfolgreiche anfrage
-                            if ($('#results') && data.success === true) {
+                            let results = $('#results');
+                            if (results && data.success === true) {
                                 $('#user_invite_form').hide();
-                                $('#results').html($('#selected_user').val() + ' wurde erfolgreich hinzugefügt!');
+                                results.html($('#selected_user').val() + ' wurde erfolgreich hinzugefügt!');
                             }
-                            if ($('#results') && data.success === false) {
-                                $('#results').html($('#selected_user').val() + ' konnte nicht hinzugefügt werden!');
+                            if (results && data.success === false) {
+                                results.html($('#selected_user').val() + ' konnte nicht hinzugefügt werden!');
                             }
                         },
 
