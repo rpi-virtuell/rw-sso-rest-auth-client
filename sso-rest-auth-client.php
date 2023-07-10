@@ -57,12 +57,16 @@ class SsoRestAuthClient
         add_action('wp_head', array($this, 'force_rpi_maintenance_mode'));
 
         add_filter('authenticate', array($this, 'check_credentials'), 999, 3);
-        add_action('init', array($this, 'login_through_token'));
-        add_action('wp', array($this, 'redrive_remote_token'));
-        add_action('login_init', array($this, 'redrive_remote_token'));
-        add_action('wp_logout', array($this, 'remote_logout'), 1);
 
-        //add_action( 'set_current_user', array( $this, 'remote_login' ) );
+//        add_action('init', array($this, 'login_through_token'));
+//        add_action('wp', array($this, 'redrive_remote_token'));
+
+        add_action('login_init', array($this, 'redrive_remote_token'));
+        add_action('wp_logout', array($this, 'remote_logout'), 100);
+
+	    add_action('init', array($this, 'redirect_to_openId_url'));
+
+//	    add_action( 'set_current_user', array( $this, 'remote_login' ) );
 
         add_action('init', array($this, 'delete_token_on_login_success'));
         add_action('admin_menu', array($this, 'add_invite_user_user_page'), 999);
@@ -370,8 +374,11 @@ class SsoRestAuthClient
 
         $this->log('remote_logout', 'SESSION:' . json_encode($_SESSION));
 
-        wp_redirect(KONTO_SERVER . '/wp-login.php' . '?sso_action=remote_logout&login_token=' . $token . '&redirect_to=' . urlencode(home_url()));
+        /*
+        if($token)
+            wp_redirect(KONTO_SERVER . '/wp-login.php' . '?sso_action=remote_logout&login_token=' . $token . '&redirect_to=' . urlencode(home_url()));
         die();
+        */
     }
 
     /**
@@ -1004,6 +1011,45 @@ class SsoRestAuthClient
         $return .= '</select> ';
 
         return $return;
+    }
+
+
+	/**
+	 * @return void
+     * bezieht sich auf das plugin openid-connect-generic
+     * ermöglicht die vorauswahl des ID Providers
+	 */
+	public function redirect_to_openId_url(){
+
+        if(isset($_GET['openid-login'])&&  !is_user_logged_in()){
+
+
+            switch ($_GET['openid-login']){
+                case 'dllp':
+                    $queryhint = 'kc_idp_hint='  . $_GET['openid-login'].'&';
+	                break;
+	            case 'rpi':
+	            case 'rpi-konto':
+	                $queryhint = 'kc_idp_hint=rpi-konto&';
+	            break;
+                default:
+	                $queryhint ='';
+
+            }
+
+	        $url = do_shortcode('[openid_connect_generic_auth_url]');
+	        $uri = parse_url($url);
+
+
+	        if($uri){
+                $query = $queryhint . $uri['query'];
+                $url = $uri['scheme'].'://'.$uri['host'].$uri['path'].'?'.$query;
+                wp_redirect($url);
+		        die();
+	        }
+
+        }
+
     }
 }
 
