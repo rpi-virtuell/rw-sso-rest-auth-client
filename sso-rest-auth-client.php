@@ -117,17 +117,20 @@ class SsoRestAuthClient
                 ));
             }
         }
+        if(is_admin()){
 
-        $admin_Bar->add_menu(array(
-            'id' => 'menu-id',
-            'parent' => null,
-            'group' => null,
-            'title' => 'Hilfe',
-            'href' => 'https://hilfe.rpi-virtuell.de/',
-            'meta' => [
-                'title' => 'Zur Hilfeseite von rpi-virtuell',
-            ]
-        ));
+	        $admin_Bar->add_menu(array(
+		        'id' => 'menu-id',
+		        'parent' => null,
+		        'group' => null,
+		        'title' => 'Hilfe',
+		        'href' => 'https://hilfe.rpi-virtuell.de/',
+		        'meta' => [
+			        'title' => 'Zur Hilfeseite von rpi-virtuell',
+		        ]
+	        ));
+        }
+
 
     }
 
